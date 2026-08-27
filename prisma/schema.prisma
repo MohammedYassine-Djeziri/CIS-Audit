@@ -1,0 +1,41 @@
+// Prisma supports uuid(4) and uuid(7). The plan asked for a "uuid v6 for
+// performance" — time-ordered UUIDs avoid random-index bloat. uuid(7) is the
+// time-ordered variant Prisma actually supports, which delivers that benefit.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CisTemplate {
+  id        String   @id @default(uuid(7))
+  name      String
+  content   Json // array of CisTest objects — see plan §3
+  createdAt DateTime @default(now())
+  assets    Asset[]
+
+  @@index([name])
+}
+
+model Asset {
+  id        String        @id @default(uuid(7))
+  title     String
+  ipAddress String
+  cisId     String
+  cis       CisTemplate   @relation(fields: [cisId], references: [id])
+  createdAt DateTime      @default(now())
+  history   ScanHistory[]
+}
+
+model ScanHistory {
+  id        String   @id @default(uuid(7))
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  score     Int // 0–100, percentage of automated rules passed
+  scannedAt DateTime @default(now())
+
+  @@index([assetId])
+}
