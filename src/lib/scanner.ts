@@ -48,6 +48,12 @@ class Scanner {
         port: this.port,
         username: this.username,
         password: this.password,
+        // Combined into one object on purpose: baseConnectOptions() carries the
+        // fixed, pre-defined config built from scan-config (readyTimeout +
+        // optional timeout/keepalive) AND the optional SOURCE network interface
+        // (localAddress/localPort → SCAN_SSH_LOCAL_ADDRESS / SCAN_SSH_LOCAL_PORT).
+        // When localAddress is unset it's omitted, and the OS picks the source
+        // interface automatically.
         ...baseConnectOptions(),
       });
       return true;
@@ -71,6 +77,10 @@ class Scanner {
   }
 
   async executeCommand(cmd: string): Promise<CommandResult> {
+
+    //showing ssh local ip address and port in the console
+    //console.log(this.ssh.);
+
     const exec = this.ssh.execCommand(cmd);
 
     // ssh2.ExecOptions exposes no per-command timeout, so a hung audit

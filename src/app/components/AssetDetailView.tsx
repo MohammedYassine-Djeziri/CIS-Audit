@@ -111,7 +111,7 @@ export function AssetDetailView({
   return (
     <Container className="py-4">
       <p className="mb-2">
-        <Link href="/" className="text-decoration-none">
+        <Link href="/assets" className="text-decoration-none">
           ← All assets
         </Link>
       </p>
