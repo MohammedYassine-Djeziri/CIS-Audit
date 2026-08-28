@@ -38,7 +38,7 @@ export function AssetList({
         <div className="alert alert-warning">
           No CIS templates are seeded yet. Seed one before creating assets:
           <code className="ms-1">
-            npx tsx prisma/seed-cis.ts &lt;benchmark.json&gt; --name &quot;...&quot;
+            npx tsx prisma/insert-cis-template.ts &lt;benchmark.json&gt; --name &quot;...&quot;
           </code>
         </div>
       )}
