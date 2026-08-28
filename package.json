@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:cis": "tsx prisma/seed-cis.ts"
+    "cis:insert": "tsx prisma/insert-cis-template.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

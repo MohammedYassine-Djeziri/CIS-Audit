@@ -1,0 +1,671 @@
+[
+  {
+    "cci": "CCI-000381 Configure the system to provide only organization-defined mission",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must not have the \"rsh-server\" package installed.",
+    "number": "1.5",
+    "rule_id": "UBTU-24-100040",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Remove the \"rsh-server\" package by using the following command: $ sudo apt-get remove rsh-server",
+    "audit_command": [
+      "dpkg -l | grep rsh-server"
+    ],
+    "audit_procedure": "Verify the \"rsh-server\" package is not installed by using the following command: $ dpkg -l | grep rsh-server If the \"rsh-server\" package is installed, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must not have accounts configured with blank or null passwords.",
+    "number": "1.70",
+    "rule_id": "UBTU-24-300027",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure all accounts on the system to have a password or lock the account by using the following commands: Set the account password: $ sudo passwd <username> Or lock the account: $ sudo passwd -l <username>",
+    "audit_command": [
+      "sudo awk -F: '!$2 {print $1}' /etc/shadow"
+    ],
+    "audit_procedure": "Verify all accounts on the system to have a password by using the following command: $ sudo awk -F: '!$2 {print $1}' /etc/shadow If the command returns any results, this is a finding."
+  },
+  {
+    "cci": "CCI-002450 Implement organization-defined types of cryptography for each specified",
+    "check": {
+      "type": "output_equals",
+      "value": "1"
+    },
+    "title": "The operating system must implement NIST FIPS-validated cryptography to protect classified information and for the following: To provision digital signatures, to generate cryptographic hashes, and to protect unclassified information requiring confidentiality and cryptographic protection in accordance with applicable federal laws, Executive Orders, directives, policies, regulations, and standards.",
+    "number": "1.101",
+    "rule_id": "UBTU-24-600030",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the operating system to run in FIPS mode. Add \"fips=1\" to the kernel parameter during the operating system install. Enabling a FIPS mode on a pre-existing system involves a number of modifications to the operating system. Refer to the Ubuntu Pro security certification documentation for instructions. A subscription to the \"Ubuntu Pro\" plan is required to obtain the FIPS Kernel cryptographic modules and enable FIPS. Note: Ubuntu Pro security certification instructions can be found at: https://ubuntu.com/security/certifications/docs/fips-enablement The basic steps use the following commands: $ sudo pro attach <token> $ sudo pro enable fips-updates",
+    "audit_command": [
+      "grep -i 1 /proc/sys/crypto/fips_enabled"
+    ],
+    "audit_procedure": "Verify the system is configured to run in FIPS mode by using the following command: $ grep -i 1 /proc/sys/crypto/fips_enabled 1 If a value of \"1\" is not returned, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must not allow accounts configured in Pluggable Authentication Modules (PAM) with blank or null passwords.",
+    "number": "1.71",
+    "rule_id": "UBTU-24-300028",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "If an account is configured for password authentication but does not have an assigned password, it is possible to log on to the account without authenticating. Remove any instances of the \"nullok\" option in \"/etc/pam.d/common-password\" to prevent logons with empty passwords.",
+    "audit_command": [
+      "grep nullok /etc/pam.d/common-auth /etc/pam.d/common-password"
+    ],
+    "audit_procedure": "To verify that null passwords cannot be used, run the following command: $ grep nullok /etc/pam.d/common-auth /etc/pam.d/common-password If this produces any output, this is a finding."
+  },
+  {
+    "cci": "CCI-000197 For password-based authentication, transmit passwords only",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must not have the \"telnet\" package installed.",
+    "number": "1.4",
+    "rule_id": "UBTU-24-100030",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Remove the \"telnetd\" package by using the following command: $ sudo apt-get remove telnetd",
+    "audit_command": [
+      "dpkg -l | grep telnetd"
+    ],
+    "audit_procedure": "Verify that the \"telnetd\" package is not installed on the operating system by using the following command: $ dpkg -l | grep telnetd If the \"telnetd\" package is installed, this is a finding."
+  },
+  {
+    "cci": "CCI-002418 Protect the confidentiality and/or integrity of transmitted information.",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "enabled[\\s\\S]*active"
+    },
+    "title": "The operating system must use SSH to protect the confidentiality and integrity of transmitted information.",
+    "number": "1.23",
+    "rule_id": "UBTU-24-100810",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Enable and start the \"ssh.service\" by using the following command: $ sudo systemctl enable ssh.service --now ensure the \"ssh\" service is running $ sudo systemctl start ssh.service",
+    "audit_command": [
+      "sudo systemctl is-enabled ssh",
+      "sudo systemctl is-active ssh"
+    ],
+    "audit_procedure": "Verify the \"ssh.service\" is enabled and active by using the following commands: $ sudo systemctl is-enabled ssh enabled $ sudo systemctl is-active ssh active If \"ssh.service\" is not enabled and active, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_contains",
+      "value": "masked"
+    },
+    "title": "The operating system must disable the x86 Ctrl-Alt-Delete key sequence.",
+    "number": "1.69",
+    "rule_id": "UBTU-24-300026",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the system to disable the Ctrl-Alt-Delete sequence for the command line with the following commands: $ sudo systemctl disable ctrl-alt-del.target [...] $ sudo systemctl mask ctrl-alt-del.target Created symlink /etc/systemd/system/ctrl-alt-del.target ? /dev/null. Reload the daemon to take effect: $ sudo systemctl daemon-reload",
+    "audit_command": [
+      "systemctl status ctrl-alt-del.target"
+    ],
+    "audit_procedure": "Verify the operating system is not configured to reboot the system when Ctrl-Alt-Delete is pressed by using the following command: $ systemctl status ctrl-alt-del.target ctrl-alt-del.target Loaded: masked (Reason: Unit ctrl-alt-del.target is masked.) Active: inactive (dead) If the \"ctrl-alt-del.target\" is not masked, this is a finding."
+  },
+  {
+    "cci": "CCI-000213 Enforce approved authorizations for logical access to information and",
+    "check": {
+      "type": "output_contains",
+      "value": "password_pbkdf2"
+    },
+    "title": "The operating system, when booted, must require authentication upon booting into single-user and maintenance modes.",
+    "number": "1.32",
+    "rule_id": "UBTU-24-102000",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the operating system to require a password for authentication upon booting into single-user and maintenance modes. Generate an encrypted (grub) password for root by using the following command: $ grub-mkpasswd-pbkdf2 Enter Password: Reenter Password: PBKDF2 hash of your password is grub.pbkdf2.sha512.10000.03255F190F0E2F7B4F0D1C3216012309162F022A7A636771 Using the hash from the output, modify the \"/etc/grub.d/40_custom\" file by using the following command to add a boot password: $ sudo sed -i '$i set superusers=\\\"root\\\"\\npassword_pbkdf2 root <hash>' /etc/grub.d/40_custom where is the hash generated by grub-mkpasswd-pbkdf2 command. Generate an updated \"grub.conf\" file with the new password by using the following command: $ sudo update-grub",
+    "audit_command": [
+      "sudo grep -i password /boot/grub/grub.cfg"
+    ],
+    "audit_procedure": "Verify the operating system requires a password for authentication upon booting into single-user and maintenance modes by using the following command: $ sudo grep -i password /boot/grub/grub.cfg password_pbkdf2 root grub.pbkdf2.sha512.10000.03255F190F0E2F7B4F0D1C3216012309162F022A7A636771 If the root password entry does not begin with \"password_pbkdf2\", this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must not allow unattended or automatic login via SSH.",
+    "number": "1.74",
+    "rule_id": "UBTU-24-300031",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the SSH server to not allow unattended or automatic login to the system. Add or modify the following lines in the \"/etc/ssh/sshd_config\" file: PermitEmptyPasswords no PermitUserEnvironment no Restart the SSH daemon for the changes to take effect: $ sudo systemctl restart sshd.service",
+    "audit_command": [
+      "egrep -r '(Permit(.*?)(Passwords|Environment))' /etc/ssh/sshd_config"
+    ],
+    "audit_procedure": "Verify that unattended or automatic login via SSH is disabled by using the following command: $ egrep -r '(Permit(.*?)(Passwords|Environment))' /etc/ssh/sshd_config PermitEmptyPasswords no PermitUserEnvironment no If \"PermitEmptyPasswords\" and \"PermitUserEnvironment\" are not set to \"no\", are commented out, are missing, or conflicting results are returned, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must be configured so that remote X connections are disabled, unless to fulfill documented and validated mission requirements.",
+    "number": "1.65",
+    "rule_id": "UBTU-24-300022",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the SSH server to disable X11 forwarding. Add or modify the following line in the \"/etc/ssh/sshd_config\" file: X11Forwarding no Restart the SSH daemon for the changes to take effect: $ sudo systemctl restart sshd.service",
+    "audit_command": [
+      "sudo grep -ir x11forwarding /etc/ssh/sshd_config* | grep -v \"^#\""
+    ],
+    "audit_procedure": "Verify that X11 forwarding is disabled by using the following command: $ sudo grep -ir x11forwarding /etc/ssh/sshd_config* | grep -v \"^#\" X11Forwarding no If \"X11Forwarding\" is set to \"yes\" and is not documented with the information system security officer (ISSO) as an operational requirement, is commented out, is missing, or conflicting results are returned, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "manual"
+    },
+    "title": "The operating system must disable the x86 Ctrl-Alt-Delete key sequence if a graphical user interface is installed.",
+    "number": "1.68",
+    "rule_id": "UBTU-24-300025",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Configure the operating system to disable the Ctrl-Alt-Delete sequence when using a graphical user interface: $ gsettings set org.gnome.settings-daemon.plugins.media-keys logout [] Update the dconf settings: $ sudo dconf update",
+    "audit_command": [
+      "gsettings get org.gnome.settings-daemon.plugins.media-keys logout"
+    ],
+    "audit_procedure": "Verify the operating system is not configured to reboot the system when Ctrl-Alt-Delete is pressed when using a graphical user interface by using the following command: Note: If no graphical user interface is installed, this requirement is not applicable. $ gsettings get org.gnome.settings-daemon.plugins.media-keys logout @as [] If the \"logout\" key is bound to an action, is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-002418 Protect the confidentiality and/or integrity of transmitted information.",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "^ii\\s"
+    },
+    "title": "The operating system must have SSH installed.",
+    "number": "1.22",
+    "rule_id": "UBTU-24-100800",
+    "severity": "CATI",
+    "automated": true,
+    "remediation": "Install the \"ssh\" meta-package by using the following command: $ sudo apt install ssh",
+    "audit_command": [
+      "sudo dpkg -l | grep openssh"
+    ],
+    "audit_procedure": "Verify the SSH package is installed by using the following command: $ sudo dpkg -l | grep openssh ii openssh-client 1:9.6p1-3ubuntu13.5 amd64 secure shell (SSH) client, for secure access to remote machines ii openssh-server 1:9.6p1-3ubuntu13.5 amd64 secure shell (SSH) server, for secure access from remote machines ii openssh-sftp-server 1:9.6p1-3ubuntu13.5 amd64 secure shell (SSH) sftp server module, for SFTP access from remote machines If the \"openssh\" server package is not installed, this is a finding."
+  },
+  {
+    "cci": "CCI-002314 Employ automated mechanisms to control remote access methods.",
+    "check": {
+      "type": "output_contains",
+      "value": "active"
+    },
+    "title": "The operating system must enable and run the Uncomplicated Firewall (ufw).",
+    "number": "1.12",
+    "rule_id": "UBTU-24-100310",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Enable the ufw by using the following command: $ sudo ufw enable",
+    "audit_command": [
+      "sudo ufw status"
+    ],
+    "audit_procedure": "Verify the ufw is enabled on the system with the following command: $ sudo ufw status Status: active If the above command returns the status as \"inactive\" or any type of error, this is a finding."
+  },
+  {
+    "cci": "CCI-000057 The information system initiates a session lock after the organization-",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "^ii\\s"
+    },
+    "title": "The operating system must allow users to directly initiate a session lock for all connection types.",
+    "number": "1.31",
+    "rule_id": "UBTU-24-101000",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Install the \"vlock\" package by using the following command: $ sudo apt-get install vlock",
+    "audit_command": [
+      "dpkg -l | grep vlock"
+    ],
+    "audit_procedure": "Verify the operating system has the \"vlock\" package installed by using the following command: $ dpkg -l | grep vlock ii vlock 2.2.2-10 amd64 Virtual Console locking program If \"vlock\" is not installed, this is a finding."
+  },
+  {
+    "cci": "CCI-004046 Implement multi-factor authentication for local; network; and/or remote",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "enabled[\\s\\S]*active"
+    },
+    "title": "The operating system must use the \"SSSD\" package for multifactor authentication services.",
+    "number": "1.20",
+    "rule_id": "UBTU-24-100660",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Enable the \"sssd.service to start automatically on reboot with the following command: $ sudo systemctl enable sssd.service ensure the \"sssd\" service is running $ sudo systemctl start sssd.service",
+    "audit_command": [
+      "sudo systemctl is-enabled sssd",
+      "sudo systemctl is-active sssd"
+    ],
+    "audit_procedure": "Verify the \"sssd.service\" is enabled and active with the following commands: $ sudo systemctl is-enabled sssd enabled $ sudo systemctl is-active sssd active If \"sssd.service\" is not active or enabled, this is a finding."
+  },
+  {
+    "cci": "CCI-001090 Prevent unauthorized and unintended information transfer via shared",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must set a sticky bit on all public directories to prevent unauthorized and unintended information transferred via shared system resources.",
+    "number": "1.107",
+    "rule_id": "UBTU-24-600150",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure all public directories to have the sticky bit set to prevent unauthorized and unintended information transferred via shared system resources. Set the sticky bit on all public directories using the following command, replacing \"<public_directory_name>\" with any directory path missing the sticky bit: $ sudo chmod +t <public_directory_name>",
+    "audit_command": [
+      "sudo find / -type d -perm -002 ! -perm -1000"
+    ],
+    "audit_procedure": "Verify that all public directories have the public sticky bit set by using the following command: $ sudo find / -type d -perm -002 ! -perm -1000 If any public directories are found missing the sticky bit, this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "root"
+    },
+    "title": "The operating system must configure the \"/var/log\" directory to be owned by \"root\".",
+    "number": "1.123",
+    "rule_id": "UBTU-24-700110",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to have root own the \"/var/log\" directory by using the following command: $ sudo chown root /var/log",
+    "audit_command": [
+      "stat -c \"%n %U\" /var/log"
+    ],
+    "audit_procedure": "Verify the operating system configures the \"/var/log\" directory to be owned by \"root\" by using the following command: $ stat -c \"%n %U\" /var/log /var/log root If the \"/var/log\" directory is not owned by \"root\", this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "root"
+    },
+    "title": "The operating system must be configured so that the \"journalctl\" command is owned by \"root\".",
+    "number": "1.116",
+    "rule_id": "UBTU-24-700040",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure \"journalctl\" to be owned by \"root\": $ sudo chown root /usr/bin/journalctl",
+    "audit_command": [
+      "sudo find /usr/bin/journalctl -exec stat -c \"%n %U\" {} \\;"
+    ],
+    "audit_procedure": "Verify that the \"journalctl\" command is owned by \"root\" by using the following command: $ sudo find /usr/bin/journalctl -exec stat -c \"%n %U\" {} \\; /usr/bin/journalctl root If \"journalctl\" is not owned by \"root\", this is a finding."
+  },
+  {
+    "cci": "CCI-000130 Ensure that audit records containing information that establishes what type",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "^ii\\s"
+    },
+    "title": "The operating system must have the \"auditd\" package installed.",
+    "number": "1.13",
+    "rule_id": "UBTU-24-100400",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Install the \"auditd\" package by using the following command: $ sudo apt-get install auditd",
+    "audit_command": [
+      "dpkg -l | grep auditd"
+    ],
+    "audit_procedure": "Verify the \"auditd\" package is installed by using the following command: $ dpkg -l | grep auditd ii libauditd 1:3.0.7-1build1 amd64 User space tools for security auditing If the \"auditd\" package is not installed, this is a finding."
+  },
+  {
+    "cci": "CCI-001312 Generates error messages that provide information necessary for",
+    "check": {
+      "type": "manual"
+    },
+    "title": "The operating system must be configured so that the \"journalctl\" command is not accessible by unauthorized users.",
+    "number": "1.115",
+    "rule_id": "UBTU-24-700030",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure \"journalctl\" to have a permission set of \"740\": $ sudo chmod 740 /usr/bin/journalctl",
+    "audit_command": [
+      "sudo find /usr/bin/journalctl -exec stat -c \"%n %a\" {} \\;"
+    ],
+    "audit_procedure": "Verify that the \"journalctl\" command has a permission set of \"740\" by using the following command: $ sudo find /usr/bin/journalctl -exec stat -c \"%n %a\" {} \\; /usr/bin/journalctl 740 If \"journalctl\" is not set to \"740\", this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "root"
+    },
+    "title": "The operating system must be configured so that the \"journalctl\" command is group- owned by \"root\".",
+    "number": "1.117",
+    "rule_id": "UBTU-24-700050",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure \"journalctl\" to be group-owned by \"root\": $ sudo chown :root /usr/bin/journalctl",
+    "audit_command": [
+      "sudo find /usr/bin/journalctl -exec stat -c \"%n %G\" {} \\;"
+    ],
+    "audit_procedure": "Verify that the \"journalctl\" command is group-owned by \"root\" by using the following command: $ sudo find /usr/bin/journalctl -exec stat -c \"%n %G\" {} \\; /usr/bin/journalctl root If \"journalctl\" is not group-owned by \"root\", this is a finding."
+  },
+  {
+    "cci": "CCI-000130 Ensure that audit records containing information that establishes what type",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "enabled[\\s\\S]*active"
+    },
+    "title": "The operating system must produce audit records and reports containing information to establish when, where, what type, the source, and the outcome for all DOD-defined auditable events and actions in near real time.",
+    "number": "1.14",
+    "rule_id": "UBTU-24-100410",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Verify the \"auditd.service\" is enabled and active by using the following commands: $ systemctl is-enabled auditd.service enabled $ systemctl is-active auditd.service active If the \"auditd.service\" is not enabled and active, this is a finding. Enable and start the \"auditd.service\" by using the following command: $ sudo systemctl enable auditd.service --now",
+    "audit_command": [
+      "systemctl is-enabled auditd.service",
+      "systemctl is-active auditd.service"
+    ],
+    "audit_procedure": "Verify the \"auditd.service\" is enabled and active by using the following commands: $ systemctl is-enabled auditd.service enabled $ systemctl is-active auditd.service active If the \"auditd.service\" is not enabled and active, this is a finding."
+  },
+  {
+    "cci": "CCI-001764 Prevent program execution in accordance with organization-defined",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "enabled[\\s\\S]*active"
+    },
+    "title": "The operating system must be configured to use AppArmor.",
+    "number": "1.17",
+    "rule_id": "UBTU-24-100510",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Enable and start \"apparmor.service\" by using the following command: $ sudo systemctl enable apparmor.service --now Note: AppArmor must have properly configured profiles for applications and home directories. All configurations will be based on the actual system setup and organization and normally are on a per role basis. See the AppArmor documentation for more information on configuring profiles.",
+    "audit_command": [
+      "systemctl is-enabled apparmor.service",
+      "systemctl is-active apparmor.service"
+    ],
+    "audit_procedure": "Verify the operating system AppArmor is active by using the following commands: $ systemctl is-enabled apparmor.service enabled $ systemctl is-active apparmor.service active If \"apparmor.service\" is not enabled and active, this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "syslog"
+    },
+    "title": "The operating system must configure \"/var/log/syslog\" file to be owned by \"syslog\".",
+    "number": "1.126",
+    "rule_id": "UBTU-24-700140",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to have syslog own the \"/var/log/syslog\" file by using the following command: $ sudo chown syslog /var/log/syslog",
+    "audit_command": [
+      "stat -c \"%n %U\" /var/log/syslog"
+    ],
+    "audit_procedure": "Verify that the operating system configures the \"/var/log/syslog\" file to be owned by \"syslog\" by using the following command: $ stat -c \"%n %U\" /var/log/syslog /var/log/syslog If the \"/var/log/syslog\" file is not owned by \"syslog\", this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "syslog"
+    },
+    "title": "The operating system must configure the \"/var/log\" directory to be group-owned by \"syslog\".",
+    "number": "1.122",
+    "rule_id": "UBTU-24-700100",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to have syslog group-own the \"/var/log\" directory by using the following command: $ sudo chgrp syslog /var/log",
+    "audit_command": [
+      "stat -c \"%n %G\" /var/log"
+    ],
+    "audit_procedure": "Verify that the operating system configures the \"/var/log\" directory to be group-owned by \"syslog\" by using the following command: $ stat -c \"%n %G\" /var/log /var/log syslog If the \"/var/log\" directory is not group-owned by \"syslog\", this is a finding."
+  },
+  {
+    "cci": "CCI-000765 Implement multifactor authentication for network access to privileged",
+    "check": {
+      "type": "output_contains",
+      "value": "pam_pkcs11.so"
+    },
+    "title": "Ubuntu 24.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts.",
+    "number": "1.78",
+    "rule_id": "UBTU-24-400020",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure Ubuntu 24.04 LTS to use multifactor authentication for access to accounts. Add or update \"pam_pkcs11.so\" in \"/etc/pam.d/common-auth\" to match the following line: auth [success=2 default=ignore] pam_pkcs11.so",
+    "audit_command": [
+      "grep -r pam_pkcs11.so /etc/pam.d/common-auth"
+    ],
+    "audit_procedure": "Verify that the \"pam_pkcs11.so\" module is configured with the following command: $ grep -r pam_pkcs11.so /etc/pam.d/common-auth auth [success=2 default=ignore] pam_pkcs11.so If the module is not configured, is missing, or commented out, this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "output_contains",
+      "value": "adm"
+    },
+    "title": "The operating system must configure the \"/var/log/syslog\" file to be group-owned by \"adm\".",
+    "number": "1.125",
+    "rule_id": "UBTU-24-700130",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to have adm group-own the \"/var/log/syslog\" file by using the following command: $ sudo chgrp adm /var/log/syslog",
+    "audit_command": [
+      "stat -c \"%n %G\" /var/log/syslog"
+    ],
+    "audit_procedure": "Verify that the operating system configures the \"/var/log/syslog\" file to be group-owned by \"adm\" by using the following command: $ stat -c \"%n %G\" /var/log/syslog /var/log/syslog adm If the \"/var/log/syslog\" file is not group-owned by \"adm\", this is a finding."
+  },
+  {
+    "cci": "CCI-004066 For password-based authentication, enforce organization-defined",
+    "check": {
+      "type": "numeric_gte",
+      "value": 15
+    },
+    "title": "The operating system must enforce a minimum 15-character password length.",
+    "number": "1.89",
+    "rule_id": "UBTU-24-400320",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to enforce a minimum 15-character password length. Add or modify the following line in the \"/etc/security/pwquality.conf\" file: minlen = 15",
+    "audit_command": [
+      "grep -i minlen /etc/security/pwquality.conf"
+    ],
+    "audit_procedure": "Verify the pwquality configuration file enforces a minimum 15-character password length by using the following command: $ grep -i minlen /etc/security/pwquality.conf minlen = 15 If \"minlen\" is not \"15\" or higher, is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-004045 Require users to be individually authenticated before granting access to",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "(^|\\s)l(\\s|$)"
+    },
+    "title": "The operating system must prevent direct login into the root account.",
+    "number": "1.81",
+    "rule_id": "UBTU-24-400110",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to prevent direct logins to the root account by using the following command: $ sudo passwd -l root",
+    "audit_command": [
+      "sudo passwd -S root"
+    ],
+    "audit_procedure": "Verify the operating system prevents direct logins to the root account by using the following command: $ sudo passwd -S root root L 08/09/2022 0 99999 7 -1 If the output does not contain \"L\" in the second field to indicate the account is locked, this is a finding."
+  },
+  {
+    "cci": "CCI-000764 Uniquely identify and authenticate organizational users and associate that",
+    "check": {
+      "type": "manual"
+    },
+    "title": "The operating system must uniquely identify interactive users.",
+    "number": "1.77",
+    "rule_id": "UBTU-24-400000",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Edit the file \"/etc/passwd\" and provide each interactive user account that has a duplicate UID with a unique UID.",
+    "audit_command": [
+      "awk -F \":\" 'list[$3]++{print $1, $3}' /etc/passwd"
+    ],
+    "audit_procedure": "Verify the operating system contains no duplicate User IDs (UIDs) for interactive users by using the following command: $ awk -F \":\" 'list[$3]++{print $1, $3}' /etc/passwd If output is produced and the accounts listed are interactive user accounts, this is a finding."
+  },
+  {
+    "cci": "CCI-001314 Reveal error messages only to organization-defined personnel or roles.",
+    "check": {
+      "type": "manual"
+    },
+    "title": "The operating system must configure \"/var/log/syslog\" file with mode \"640\" or less permissive.",
+    "number": "1.127",
+    "rule_id": "UBTU-24-700150",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to have permissions of \"640\" for the \"/var/log/syslog\" file by using the following command: $ sudo chmod 0640 /var/log/syslog",
+    "audit_command": [
+      "stat -c \"%n %a\" /var/log/syslog"
+    ],
+    "audit_procedure": "Verify that the operating system configures the \"/var/log/syslog\" file with mode \"640\" or less permissive by using the following command: $ stat -c \"%n %a\" /var/log/syslog /var/log/syslog 640 If a value of \"640\" or less permissive is not returned, this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "manual"
+    },
+    "title": "The operating system must prevent the use of dictionary words for passwords.",
+    "number": "1.61",
+    "rule_id": "UBTU-24-300014",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to prevent the use of dictionary words for passwords. Add or modify the following line in the \"/etc/security/pwquality.conf\" file: dictcheck = 1",
+    "audit_command": [
+      "grep dictcheck /etc/security/pwquality.conf"
+    ],
+    "audit_procedure": "Verify the operating system uses the \"cracklib\" library to prevent the use of dictionary words with the following command: $ grep dictcheck /etc/security/pwquality.conf dictcheck = 1 If \"dictcheck\" is not set to \"1\", is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-004066 For password-based authentication, enforce organization-defined",
+    "check": {
+      "type": "numeric_gte",
+      "value": 8
+    },
+    "title": "The operating system must require the change of at least eight characters when passwords are changed.",
+    "number": "1.86",
+    "rule_id": "UBTU-24-400290",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to require the change of at least eight characters when passwords are changed. Add or modify the following line in the \"/etc/security/pwquality.conf\" file: difok = 8",
+    "audit_command": [
+      "grep -i difok /etc/security/pwquality.conf"
+    ],
+    "audit_procedure": "Verify the operating system requires the change of at least eight characters when passwords are changed by using the following command: $ grep -i difok /etc/security/pwquality.conf difok = 8 If \"difok\" is less than \"8\", is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-004066 For password-based authentication, enforce organization-defined",
+    "check": {
+      "type": "numeric_gte",
+      "value": 60
+    },
+    "title": "The operating system must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction.",
+    "number": "1.88",
+    "rule_id": "UBTU-24-400310",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to enforce a 60-day maximum password lifetime. Add or modify the following line in the \"/etc/login.defs\" file: PASS_MAX_DAYS 60",
+    "audit_command": [
+      "grep -i pass_max_days /etc/login.defs"
+    ],
+    "audit_procedure": "Verify the operating system enforces a 60-day maximum password lifetime for new user accounts by using the following command: $ grep -i pass_max_days /etc/login.defs PASS_MAX_DAYS 60 If \"PASS_MAX_DAYS\" is less than \"60\", is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-000163 Protect audit information from unauthorized modification.",
+    "check": {
+      "type": "output_contains",
+      "value": "-e 2"
+    },
+    "title": "Verify the audit system prevents unauthorized changes to the rules with the following command: $ gre",
+    "number": "1.188",
+    "rule_id": "UBTU-24-909000",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the audit system to set the audit rules to be immutable by adding the following line to the end of \"/etc/audit/rules.d/audit.rules\": -e 2",
+    "audit_command": [
+      "grep -E '^-e 2' /etc/audit/audit.rules"
+    ],
+    "audit_procedure": "Verify the audit system prevents unauthorized changes to the rules with the following command: $ grep -E '^-e 2' /etc/audit/audit.rules -e 2 If the audit system is not set to be immutable by adding the \"-e 2\" option to the end of \"/etc/audit/audit.rules\", this is a finding."
+  },
+  {
+    "cci": "CCI-000366 Implement the security configuration settings.",
+    "check": {
+      "type": "output_matches_regex",
+      "pattern": "^ii\\s"
+    },
+    "title": "The operating system must have the \"libpam-pwquality\" package installed.",
+    "number": "1.18",
+    "rule_id": "UBTU-24-100600",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Install the \"pam_pwquality\" package by using the following command: $ sudo apt install -y libpam-pwquality",
+    "audit_command": [
+      "dpkg -l | grep libpam-pwquality"
+    ],
+    "audit_procedure": "Verify the operating system has the \"libpam-pwquality\" package installed with the following command: $ dpkg -l | grep libpam-pwquality ii libpam-pwquality:amd64 1.4.5-3build1 amd64 PAM module to check password strength If \"libpam-pwquality\" is not installed, this is a finding."
+  },
+  {
+    "cci": "CCI-004066 For password-based authentication, enforce organization-defined",
+    "check": {
+      "type": "numeric_gte",
+      "value": 1
+    },
+    "title": "The operating system must enforce 24 hours/one day as the minimum password lifetime. Passwords for new users must have a 24 hours/one day minimum password lifetime restriction.",
+    "number": "1.87",
+    "rule_id": "UBTU-24-400300",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system to enforce a 24 hours/one day minimum password lifetime. Add or modify the following line in the \"/etc/login.defs\" file: PASS_MIN_DAYS 1",
+    "audit_command": [
+      "grep -i pass_min_days /etc/login.defs"
+    ],
+    "audit_procedure": "Verify the operating system enforces a 24 hours/one day minimum password lifetime for new user accounts by using the following command: $ grep -i pass_min_days /etc/login.defs PASS_MIN_DAYS 1 If \"PASS_MIN_DAYS\" is less than \"1\", is commented out, or is missing, this is a finding."
+  },
+  {
+    "cci": "CCI-004895 Permit users to invoke the trusted communications path for",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must require users to reauthenticate for privilege escalation or when changing roles.",
+    "number": "1.64",
+    "rule_id": "UBTU-24-300021",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Remove any occurrence of \"NOPASSWD\" or \"!authenticate\" found in \"/etc/sudoers\" file or files in the \"/etc/sudoers.d\" directory.",
+    "audit_command": [
+      "sudo grep -Ei '(nopasswd|!authenticate)' /etc/sudoers /etc/sudoers.d/*"
+    ],
+    "audit_procedure": "Verify the \"/etc/sudoers\" file has no occurrences of \"NOPASSWD\" or \"!authenticate\" by using the following command: $ sudo grep -Ei '(nopasswd|!authenticate)' /etc/sudoers /etc/sudoers.d/* If any occurrences of \"NOPASSWD\" or \"!authenticate\" return from the command, this is a finding."
+  },
+  {
+    "cci": "CCI-001495 Protect audit tools from unauthorized deletion.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system must have directories that contain system commands owned by \"root\".",
+    "number": "1.182",
+    "rule_id": "UBTU-24-901270",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the operating system commands directories to be protected from unauthorized access. Run the following command: $ sudo find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! - user root -type d -exec chown root '{}' \\;",
+    "audit_command": [
+      "sudo find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -"
+    ],
+    "audit_procedure": "Verify the system commands directories are owned by \"root\" by using the following command: $ sudo find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! - user root -type d -exec stat -c \"%n %U\" '{}' \\; If any system commands directories are returned, this is a finding."
+  },
+  {
+    "cci": "CCI-001499 Limit privileges to change software resident within software libraries.",
+    "check": {
+      "type": "output_empty"
+    },
+    "title": "The operating system library directories must be owned by \"root\".",
+    "number": "1.55",
+    "rule_id": "UBTU-24-300008",
+    "severity": "CATII",
+    "automated": true,
+    "remediation": "Configure the library files and their respective parent directories to be protected from unauthorized access. Run the following command: $ sudo find /lib /usr/lib /lib64 ! -user root -type d -exec chown root '{}' \\;",
+    "audit_command": [
+      "sudo find /lib /usr/lib /lib64 ! -user root -type d -exec stat -c \"%n %U\""
+    ],
+    "audit_procedure": "Verify the systemwide shared library directories \"/lib\", \"/lib64\", and \"/usr/lib\" are owned by \"root\" by using the following command: $ sudo find /lib /usr/lib /lib64 ! -user root -type d -exec stat -c \"%n %U\" '{}' \\; If any systemwide library directory is returned, this is a finding."
+  }
+]

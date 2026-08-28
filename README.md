@@ -14,36 +14,45 @@ npx prisma migrate dev
 npm run dev
 ```
 
-## Seeding a CIS benchmark
+## Getting CIS data into the database
 
-Seed any CIS/STIG benchmark JSON (any distro/version). The script infers a
-machine-readable `check` field for each rule from its audit text and flags
-rules it cannot decide on for manual review:
+There is no `createCisTemplate` API in this app (§4 only exposes `list`/`get`),
+so a `CisTemplate` row gets in **out of band** — a direct SQL insert, Prisma
+Studio, or this throwaway one-off script (run by hand, as many files as you
+like). It does no transformation and no validation on purpose: CIS JSON
+files are expected to already carry their `check` fields, and all
+correctness checking happens later, in `parseCisContent`
+(`src/lib/cis-parser.ts`), which runs every time a scan starts.
 
 ```bash
-npm run seed:cis -- <benchmark.json> --name "CIS Ubuntu 24.04 Benchmark"
-# apply hand-reviewed check overrides for flagged rules:
-npm run seed:cis -- <benchmark.json> --name "..." --checks overrides.json
+# file must already contain a `check` field per rule (plan §3)
+npm run cis:insert -- <cis-benchmark.json> --name "CIS Ubuntu 24.04 Benchmark"
 ```
 
-## Testing without a real target VM
+`data/cisExample.checked.json` is a ready-to-insert, `check`-populated copy of
+the plan's example (the raw `Plan/cisExample.json` has no `check` fields and
+would be rejected at scan time with `{ type: "error", stage: "invalid_template" }`).
+
+## Scanning
+
+Scans connect as `root` and stream progress from `POST /api/scan` to the
+browser (one JSON event per line, plan §5). The route validates the asset's
+template with `parseCisContent` **before** opening any SSH connection — a
+malformed template yields `{ type: "error", stage: "invalid_template" }` and
+no connection is ever attempted. The root password is used for one scan only
+— never stored — and is cleared from memory when the scan finishes.
+
+## Local testing without a real target VM
 
 A mock SSH server answers on 127.0.0.1:2222 with deterministic output:
 
 ```bash
 npx tsx scripts/mock-ssh-server.ts
-# then create an asset with IP address "127.0.0.1:2222"
-# and scan it with the password "testpass"
+# create an asset with IP address "127.0.0.1:2222", scan it with password "testpass"
 ```
 
-## Notes
-
-- Scans connect as `root` and stream progress from `POST /api/scan` to the
-  browser (one JSON event per line). The root password is used for one scan
-  only — never stored — and is cleared from memory when the scan finishes.
-- Run only on localhost or behind HTTPS: the password crosses the network
-  on every scan request.
-
+Run only on localhost or behind HTTPS: the root password crosses the
+network on every scan request.
 
 ## Getting Started
 

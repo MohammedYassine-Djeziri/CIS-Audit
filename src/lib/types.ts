@@ -40,7 +40,7 @@ export type ScanEvent =
       stage: "preparing" | "testing_connectivity" | "connected" | "scanning_started";
       total?: number;
     }
-  | { type: "error"; stage: "connection_failed" | "scan_failed"; message: string }
+  | { type: "error"; stage: "invalid_template" | "connection_failed" | "scan_failed"; message: string }
   | {
       type: "test_result";
       index: number;

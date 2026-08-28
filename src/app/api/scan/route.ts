@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseCisContent } from "@/lib/cis-parser";
+import { CisContentError, parseCisContent } from "@/lib/cis-parser";
 import { scanner } from "@/lib/scanner";
 import { recordScan } from "@/lib/scan-history";
 import type { ScanEvent } from "@/lib/types";
@@ -9,14 +9,20 @@ import type { ScanEvent } from "@/lib/types";
  * The one streamed Route Handler (plan §5): POST /api/scan
  *
  * Body: { assetId, password }. Runs the entire scan pipeline — fetch the
- * asset's CIS template, parse/filter it, connect over SSH, run each
- * automated test in order — and emits one JSON object (plan §5 event
- * shapes) per line, server → client, over a single streamed HTTP response
- * the client reads incrementally with response.body.getReader().
+ * asset's CIS template, VALIDATE it with parseCisContent (the app's one and
+ * only schema validation point, run first, before any network I/O), then
+ * connect over SSH and run each automated test in order — emitting one JSON
+ * object (plan §5 event shapes) per line, server → client, over a single
+ * streamed HTTP response the client reads incrementally with
+ * response.body.getReader().
  *
- * On connection failure the stream ends at `connection_failed` and NO
- * ScanHistory row is written: a failed connection attempt isn't a scan
- * result and shouldn't pollute the score history.
+ * - Template validation failure → `{ type: "error", stage:
+ *   "invalid_template" }` and the stream ends immediately (no SSH
+ *   connection is ever attempted).
+ * - Connection failure → `{ type: "error", stage: "connection_failed" }`
+ *   and the stream ends with NO ScanHistory row written: a failed
+ *   connection attempt isn't a scan result and shouldn't pollute the score
+ *   history.
  */
 
 export const runtime = "nodejs";
@@ -67,7 +73,23 @@ export async function POST(req: NextRequest) {
 
       try {
         send({ type: "status", stage: "preparing" });
-        const tests = parseCisContent(cisContent);
+
+        // Validate/filter the template FIRST — before touching the network
+        // (build prompt 13). Invalid data never reaches SSH.
+        let tests;
+        try {
+          tests = parseCisContent(cisContent);
+        } catch (err) {
+          if (err instanceof CisContentError) {
+            send({
+              type: "error",
+              stage: "invalid_template",
+              message: err.message,
+            });
+            return; // ends the stream — no connection, no history
+          }
+          throw err;
+        }
 
         send({ type: "status", stage: "testing_connectivity" });
         scanner.setTarget(host, SCAN_USERNAME, password, port);
