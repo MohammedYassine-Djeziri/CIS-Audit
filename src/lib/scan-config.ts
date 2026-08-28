@@ -4,13 +4,17 @@ import "server-only";
  * Central, pre-defined SSH/scan configuration (plan §7b, open item
  * "SSH username").
  *
- * Every magic value that used to live inline in the scanner — the connect
- * username, default port, the SSH handshake timeout, an optional socket
- * timeout, keepalive, per-command timeout, and the SOURCE network interface
- * to connect from — lives here as a typed, environment-driven config. This
- * is the single place to tune how the process interfaces with the target
- * host; the scanner and the scan route both read from it, so defaults can
- * be changed without touching code.
+ * Every magic value that used to live inline in the scanner — the default
+ * port, the SSH handshake timeout, an optional socket timeout, keepalive,
+ * per-command timeout, and the SOURCE network interface to connect from —
+ * lives here as a typed, environment-driven config. This is the single place
+ * to tune how the process interfaces with the target host; the scanner and
+ * the scan route both read from it, so defaults can be changed without
+ * touching code.
+ *
+ * NOTE: the SSH username is intentionally NOT part of this config. It is
+ * stored per-asset in the database (Asset.username) and is the single source
+ * of truth for who the scanner connects as.
  *
  * The actual SSH transport is performed by `node-ssh` → `ssh2`, whose
  * `ConnectConfig` exposes:
@@ -29,7 +33,6 @@ import "server-only";
  * interface's IP address.
  *
  * Env vars (all optional, with safe defaults):
- *   SCAN_SSH_USERNAME              default "user"
  *   SCAN_SSH_DEFAULT_PORT          default 22
  *   SCAN_SSH_READY_TIMEOUT_MS      default 10000  (ssh2 ConnectConfig.readyTimeout)
  *   SCAN_SSH_SOCKET_TIMEOUT_MS     default unset  (ssh2 ConnectConfig.timeout)
@@ -44,11 +47,6 @@ function numEnv(name: string, fallback: number): number {
   if (!raw) return fallback;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function strEnv(name: string, fallback: string): string {
-  const raw = process.env[name];
-  return raw && raw.trim() ? raw : fallback;
 }
 
 /**
@@ -69,8 +67,6 @@ function optNumEnv(name: string): number | undefined {
 }
 
 export interface ScanConfig {
-  /** SSH user. Scans connect as this user unless the asset overrides it. */
-  username: string;
   /** Port used when an asset IP has no explicit `host:port`. */
   defaultPort: number;
   /** ms to wait for the SSH handshake to complete (ssh2 `readyTimeout`). */
@@ -92,7 +88,6 @@ export interface ScanConfig {
 }
 
 export const scanConfig: ScanConfig = {
-  username: strEnv("SCAN_SSH_USERNAME", "user"),
   defaultPort: numEnv("SCAN_SSH_DEFAULT_PORT", 22),
   readyTimeoutMs: numEnv("SCAN_SSH_READY_TIMEOUT_MS", 10_000),
   socketTimeoutMs: optNumEnv("SCAN_SSH_SOCKET_TIMEOUT_MS"),

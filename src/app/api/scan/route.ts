@@ -95,16 +95,17 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: "status", stage: "testing_connectivity" });
-        // Connect as the SSH account stored on the asset (falls back to the
-        // scan-config default, "user", for rows created before the column).
-        const username = asset.username || scanConfig.username;
-        scanner.setTarget(host, username, password, port);
+        // Connect as the SSH account stored ON THIS ASSET — the Asset row is
+        // the single source of truth for the username (set per asset in the
+        // create/edit form). The scan-config/env value is deliberately NOT
+        // consulted here: it must not override what the asset says.
+        scanner.setTarget(host, asset.username, password, port);
         const connected = await scanner.connect();
         if (!connected) {
           send({
             type: "error",
             stage: "connection_failed",
-            message: `Could not connect to ${username}@${host}:${port}. Check the IP address, that SSH is reachable, and that the password is correct.`,
+            message: `Could not connect to ${asset.username}@${host}:${port}. Check the IP address, that SSH is reachable, and that the password is correct.`,
           });
           return; // ends the stream — no history written
         }

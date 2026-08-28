@@ -19,10 +19,10 @@ export interface CommandResult {
  * each other's target mid-scan. If this ever becomes multi-user, switch the
  * scan route to a per-request `new Scanner()` instance.
  *
- * The scan connects as the SSH username stored on each asset (default "user";
- * plan, open item "SSH username" — the original spec is "root password"; most
- * audit commands need privilege, so set an asset's username to root if its
- * audit commands require it).
+ * The scan connects as the SSH username stored on each Asset row (DB column
+ * `Asset.username`, default "user" — plan, open item "SSH username"; the
+ * original spec is "root password"; most audit commands need privilege, so
+ * set an asset's username to root if its audit commands require it).
  */
 class Scanner {
   private ssh: NodeSSH;
