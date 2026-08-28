@@ -1,6 +1,7 @@
 import "server-only";
-import { NodeSSH, type SSHExecCommandResponse } from "node-ssh";
+import { NodeSSH } from "node-ssh";
 import type { CisTest, CheckType } from "./types";
+import { scanConfig, baseConnectOptions } from "./scan-config";
 
 export interface CommandResult {
   stdout: string;
@@ -26,13 +27,13 @@ class Scanner {
   private host!: string;
   private username!: string;
   private password!: string;
-  private port = 22;
+  private port = scanConfig.defaultPort;
 
   constructor() {
     this.ssh = new NodeSSH();
   }
 
-  setTarget(host: string, username: string, password: string, port = 22): void {
+  setTarget(host: string, username: string, password: string, port = scanConfig.defaultPort): void {
     this.host = host;
     this.username = username;
     this.password = password;
@@ -47,7 +48,7 @@ class Scanner {
         port: this.port,
         username: this.username,
         password: this.password,
-        readyTimeout: 10_000,
+        ...baseConnectOptions(),
       });
       return true;
     } catch (err) {
@@ -70,10 +71,33 @@ class Scanner {
   }
 
   async executeCommand(cmd: string): Promise<CommandResult> {
-    const res: SSHExecCommandResponse = await this.ssh.execCommand(cmd);
-    // ssh2 reports code as null when the process is killed without an exit
-    // status — normalize to a non-zero value so checks fail closed.
-    return { stdout: res.stdout, stderr: res.stderr, code: res.code ?? 255 };
+    const exec = this.ssh.execCommand(cmd);
+
+    // ssh2.ExecOptions exposes no per-command timeout, so a hung audit
+    // command would block the scan indefinitely. When configured, race the
+    // exec against a timer; on timeout, reject so runTest records it as a
+    // command error (the check then fails closed). The lingering channel is
+    // torn down with the connection at scan end (see disconnect()).
+    const timeoutMs = scanConfig.commandTimeoutMs;
+    if (timeoutMs === undefined) {
+      const res = await exec;
+      return { stdout: res.stdout, stderr: res.stderr, code: res.code ?? 255 };
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`command timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+    });
+
+    try {
+      const res = await Promise.race([exec, timeout]);
+      return { stdout: res.stdout, stderr: res.stderr, code: res.code ?? 255 };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /**

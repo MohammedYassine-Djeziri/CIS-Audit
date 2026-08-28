@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CisContentError, parseCisContent } from "@/lib/cis-parser";
 import { scanner } from "@/lib/scanner";
+import { scanConfig } from "@/lib/scan-config";
 import { recordScan } from "@/lib/scan-history";
 import type { ScanEvent } from "@/lib/types";
 
@@ -28,16 +29,15 @@ import type { ScanEvent } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SCAN_USERNAME = "root"; // plan, open item: scans connect as root
-
 /**
  * Accepts either "192.168.1.10" or "192.168.1.10:2222" (non-standard SSH
  * port). IPv6 literals without an explicit port pass through untouched.
+ * Falls back to the configured default port (scan-config) when none is given.
  */
 function parseHostPort(ip: string): { host: string; port: number } {
   const m = ip.match(/^(?<host>[^:]+):(?<port>\d+)$/);
   if (m?.groups) return { host: m.groups.host, port: Number(m.groups.port) };
-  return { host: ip, port: 22 };
+  return { host: ip, port: scanConfig.defaultPort };
 }
 
 export async function POST(req: NextRequest) {
@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
 
         // Validate/filter the template FIRST — before touching the network
         // (build prompt 13). Invalid data never reaches SSH.
+        //sleep for 2 seconds to simulate template validation time
+        //await new Promise((resolve) => setTimeout(resolve, 20000));
         let tests;
         try {
           tests = parseCisContent(cisContent);
@@ -92,13 +94,13 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: "status", stage: "testing_connectivity" });
-        scanner.setTarget(host, SCAN_USERNAME, password, port);
+        scanner.setTarget(host, scanConfig.username, password, port);
         const connected = await scanner.connect();
         if (!connected) {
           send({
             type: "error",
             stage: "connection_failed",
-            message: `Could not connect to ${SCAN_USERNAME}@${host}:${port}. Check the IP address, that SSH is reachable, and that the password is correct.`,
+            message: `Could not connect to ${scanConfig.username}@${host}:${port}. Check the IP address, that SSH is reachable, and that the password is correct.`,
           });
           return; // ends the stream — no history written
         }
