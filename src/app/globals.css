@@ -1,17 +1,74 @@
+/*
+ * Basic Scanner — global styles & design tokens
+ *
+ * The app UI is built with Bootstrap 5.3 + react-bootstrap. Bootstrap exposes
+ * its theme through CSS variables (--bs-body-bg, --bs-body-color, …) and switches
+ * them via the `data-bs-theme` attribute on <html>. We keep Bootstrap's variables
+ * as the single source of truth and refine them here so:
+ *   - the palette is never pure black/white (easier on the eyes),
+ *   - light and dark themes stay internally consistent,
+ *   - native controls, scrollbars and form colors follow the active theme.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* App-level semantic tokens (refined Bootstrap defaults) */
+  --app-bg: #f6f7f9;
+  --app-surface: #ffffff;
+  --app-surface-2: #fbfcfd;
+  --app-border: #e4e8ef;
+  --app-text: #1b1f27;
+  --app-muted: #5c6573;
+  --app-primary: #2f6fed;
+
+  /* Override Bootstrap's tokens so every component picks up the same palette */
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-emphasis-color: var(--app-text);
+  --bs-secondary-color: var(--app-muted);
+  --bs-secondary-bg: var(--app-surface-2);
+  --bs-tertiary-bg: var(--app-surface-2);
+  --bs-border-color: var(--app-border);
+  --bs-link-color: var(--app-primary);
+  --bs-link-hover-color: #1c54c9;
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: 47, 111, 237;
+
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-bs-theme="dark"] {
+  --app-bg: #111318;
+  --app-surface: #181b22;
+  --app-surface-2: #1d212a;
+  --app-border: #2a2f3a;
+  --app-text: #e7e9ee;
+  --app-muted: #9aa3b2;
+  --app-primary: #6b95ff;
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-emphasis-color: var(--app-text);
+  --bs-secondary-color: var(--app-muted);
+  --bs-secondary-bg: var(--app-surface-2);
+  --bs-tertiary-bg: var(--app-surface-2);
+  --bs-border-color: var(--app-border);
+  --bs-link-color: var(--app-primary);
+  --bs-link-hover-color: #93b3ff;
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: 107, 149, 255;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
   height: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -24,26 +81,76 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--bs-body-color);
+  background: var(--bs-body-bg);
+  font-family: var(--bs-body-font-family), Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+  text-rendering: optimizeLegibility;
 }
 
 a {
-  color: inherit;
+  color: var(--bs-link-color);
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+a:hover {
+  color: var(--bs-link-hover-color);
+  text-decoration: underline;
+}
+
+/* Lift Bootstrap cards / modals / tables slightly off the page background so
+   they read as distinct surfaces in both themes. */
+.card,
+.modal-content,
+.table {
+  background-color: var(--app-surface);
+}
+
+/* Consistent focus ring for keyboard users (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--app-primary);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Text selection follows the theme accent */
+::selection {
+  background: color-mix(in srgb, var(--app-primary) 30%, transparent);
+  color: var(--app-text);
+}
+
+/* Subtle, theme-aware scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--app-border);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--app-muted);
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
+
