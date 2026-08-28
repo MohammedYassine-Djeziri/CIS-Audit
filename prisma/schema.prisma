@@ -24,6 +24,9 @@ model Asset {
   id        String        @id @default(uuid(7))
   title     String
   ipAddress String
+  // SSH account used to connect when scanning this asset. Defaults to "root"
+  // (most audit commands need privilege) so pre-existing rows migrate safely.
+  username  String        @default("root")
   cisId     String
   cis       CisTemplate   @relation(fields: [cisId], references: [id])
   createdAt DateTime      @default(now())

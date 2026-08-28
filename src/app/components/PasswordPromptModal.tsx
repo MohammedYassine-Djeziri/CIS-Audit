@@ -37,19 +37,19 @@ export function PasswordPromptModal({
     <Modal show={show} onHide={onHide} backdrop="static" centered>
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
-          <Modal.Title>Root password</Modal.Title>
+          <Modal.Title>Password for {asset.username}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p className="text-body-secondary mb-3">
-            Enter the root password for <strong>{asset.title}</strong> ({asset.ipAddress}) to start
-            the scan. It is used for this scan only, is never stored, and is cleared when the scan
-            completes.
+            Enter the password for <strong>{asset.username}</strong> on{" "}
+            <strong>{asset.title}</strong> ({asset.username}@{asset.ipAddress}) to start the scan.
+            It is used for this scan only, is never stored, and is cleared when the scan completes.
           </p>
           <Form.Group controlId="scan-password">
             <Form.Label visuallyHidden>Password</Form.Label>
             <Form.Control
               type="password"
-              placeholder="Root password"
+              placeholder={`${asset.username} password`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

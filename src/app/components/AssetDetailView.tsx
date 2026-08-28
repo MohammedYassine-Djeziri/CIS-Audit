@@ -118,7 +118,9 @@ export function AssetDetailView({
       <div className="d-flex justify-content-between align-items-start mb-4 gap-3 flex-wrap">
         <div>
           <h1 className="h3 mb-1">{asset.title}</h1>
-          <p className="text-body-secondary font-monospace mb-1">{asset.ipAddress}</p>
+          <p className="text-body-secondary font-monospace mb-1">
+            {asset.username}@{asset.ipAddress}
+          </p>
           <span className="badge text-bg-secondary">{asset.cisName}</span>
         </div>
         <ScanButton onClick={() => setShowPasswordModal(true)} disabled={scanning} />

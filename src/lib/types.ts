@@ -59,6 +59,8 @@ export interface AssetSummary {
   id: string;
   title: string;
   ipAddress: string;
+  /** SSH account used to connect when scanning this asset. */
+  username: string;
   cisId: string;
   cisName: string;
   createdAt: string; // ISO string

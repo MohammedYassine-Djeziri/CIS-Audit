@@ -11,7 +11,7 @@ export function AssetCard({ asset }: { asset: AssetSummary }) {
       <Card.Body>
         <Card.Title className="text-body">{asset.title}</Card.Title>
         <Card.Subtitle className="text-body-secondary font-monospace mb-2">
-          {asset.ipAddress}
+          {asset.username}@{asset.ipAddress}
         </Card.Subtitle>
         <Badge bg="secondary">{asset.cisName}</Badge>
       </Card.Body>

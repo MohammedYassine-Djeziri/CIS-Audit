@@ -26,6 +26,7 @@ export function CreateAssetModal({
 }) {
   const [title, setTitle] = useState("");
   const [ipAddress, setIpAddress] = useState("");
+  const [username, setUsername] = useState("root");
   const [cisId, setCisId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,6 +34,7 @@ export function CreateAssetModal({
   const reset = () => {
     setTitle("");
     setIpAddress("");
+    setUsername("root");
     setCisId("");
     setError(null);
   };
@@ -41,7 +43,7 @@ export function CreateAssetModal({
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await createAsset({ title, ipAddress, cisId });
+    const result = await createAsset({ title, ipAddress, username, cisId });
     setSaving(false);
     if (result.ok) {
       reset();
@@ -83,6 +85,20 @@ export function CreateAssetModal({
               onChange={(e) => setIpAddress(e.target.value)}
               required
             />
+          </Form.Group>
+          <Form.Group className="mb-3" controlId="asset-username">
+            <Form.Label>SSH username</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="e.g. root"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+            <Form.Text muted>
+              The account the scanner connects as when auditing this asset. Most audit commands
+              need privilege, so <code>root</code> is the usual choice.
+            </Form.Text>
           </Form.Group>
           <CisSelect templates={templates} value={cisId} onChange={setCisId} />
         </Modal.Body>

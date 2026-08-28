@@ -12,6 +12,7 @@ function toSummary(asset: {
   id: string;
   title: string;
   ipAddress: string;
+  username: string;
   cisId: string;
   cis: { name: string };
   createdAt: Date;
@@ -20,6 +21,7 @@ function toSummary(asset: {
     id: asset.id,
     title: asset.title,
     ipAddress: asset.ipAddress,
+    username: asset.username,
     cisId: asset.cisId,
     cisName: asset.cis.name,
     createdAt: asset.createdAt.toISOString(),
@@ -47,6 +49,8 @@ export async function getAsset(
 export interface CreateAssetData {
   title: string;
   ipAddress: string;
+  /** SSH account to connect as when scanning this asset. */
+  username: string;
   cisId: string;
 }
 
@@ -55,6 +59,7 @@ export async function createAsset(
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const title = data.title?.trim();
   const ipAddress = data.ipAddress?.trim();
+  const username = data.username?.trim() || "root";
   if (!title || !ipAddress || !data.cisId) {
     return { ok: false, error: "Title, IP address, and CIS template are all required." };
   }
@@ -63,7 +68,7 @@ export async function createAsset(
   if (!template) return { ok: false, error: "Selected CIS template does not exist." };
 
   const asset = await prisma.asset.create({
-    data: { title, ipAddress, cisId: data.cisId },
+    data: { title, ipAddress, username, cisId: data.cisId },
   });
   return { ok: true, id: asset.id };
 }
@@ -74,13 +79,14 @@ export async function updateAsset(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const title = data.title?.trim();
   const ipAddress = data.ipAddress?.trim();
+  const username = data.username?.trim() || "root";
   if (!title || !ipAddress || !data.cisId) {
     return { ok: false, error: "Title, IP address, and CIS template are all required." };
   }
   try {
     await prisma.asset.update({
       where: { id },
-      data: { title, ipAddress, cisId: data.cisId },
+      data: { title, ipAddress, username, cisId: data.cisId },
     });
     return { ok: true };
   } catch {

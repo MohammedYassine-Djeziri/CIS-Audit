@@ -56,8 +56,12 @@ class Scanner {
         // interface automatically.
         ...baseConnectOptions(),
       });
+      // The source address actually used is the configured one (SCAN_SSH_LOCAL_ADDRESS);
+      // when unset it's "(OS default)" and the kernel routing table picks the interface.
+      console.log(`>local address: ${scanConfig.localAddress ?? "(OS default)"}`);
       return true;
     } catch (err) {
+      console.log(`<local address: ${scanConfig.localAddress ?? "(OS default)"}`);
       console.error(
         `[scanner] connect failed for ${this.username}@${this.host}:${this.port}:`,
         err,
@@ -77,10 +81,6 @@ class Scanner {
   }
 
   async executeCommand(cmd: string): Promise<CommandResult> {
-
-    //showing ssh local ip address and port in the console
-    //console.log(this.ssh.);
-
     const exec = this.ssh.execCommand(cmd);
 
     // ssh2.ExecOptions exposes no per-command timeout, so a hung audit
