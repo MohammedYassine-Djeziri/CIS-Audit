@@ -19,7 +19,8 @@ export async function runScanStream(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assetId, password }),
     });
-  } catch (err) {
+  } 
+  catch (err) {
     onEvent({
       type: "error",
       stage: "scan_failed",
@@ -42,7 +43,7 @@ export async function runScanStream(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let eVent = "";
 
   const processLine = (line: string) => {
     if (!line.trim()) return;
@@ -53,13 +54,13 @@ export async function runScanStream(
     }
   };
 
-  for (;;) {
+  while(true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? ""; // keep the trailing partial line buffered
+    eVent += decoder.decode(value, { stream: true });
+    const lines = eVent.split("\n");
+    eVent = lines.pop() ?? ""; // keep the trailing partial line eVented
     for (const line of lines) processLine(line);
   }
-  if (buffer) processLine(buffer); // flush whatever remains
+  if (eVent) processLine(eVent); // flush whatever remains
 }

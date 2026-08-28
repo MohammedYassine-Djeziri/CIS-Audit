@@ -67,9 +67,10 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const send = (event: ScanEvent) => {
+      const send = (event: ScanEvent) => 
+        {
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
-      };
+        };
 
       try {
         send({ type: "status", stage: "preparing" });
