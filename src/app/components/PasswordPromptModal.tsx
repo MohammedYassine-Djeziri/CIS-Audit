@@ -8,7 +8,7 @@ import Modal from "react-bootstrap/Modal";
 import type { AssetSummary } from "@/lib/types";
 
 /**
- * Asks for the asset's root password before a scan starts. On submit the
+ * Asks for the asset's SSH account password before a scan starts. On submit the
  * password goes straight to the streamed /api/scan request — it lives only
  * in the Zustand store's memory for the duration of one scan and is cleared
  * as soon as the scan finishes (plan §6).

@@ -59,7 +59,7 @@ export async function createAsset(
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const title = data.title?.trim();
   const ipAddress = data.ipAddress?.trim();
-  const username = data.username?.trim() || "root";
+  const username = data.username?.trim() || "user";
   if (!title || !ipAddress || !data.cisId) {
     return { ok: false, error: "Title, IP address, and CIS template are all required." };
   }
@@ -79,7 +79,7 @@ export async function updateAsset(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const title = data.title?.trim();
   const ipAddress = data.ipAddress?.trim();
-  const username = data.username?.trim() || "root";
+  const username = data.username?.trim() || "user";
   if (!title || !ipAddress || !data.cisId) {
     return { ok: false, error: "Title, IP address, and CIS template are all required." };
   }

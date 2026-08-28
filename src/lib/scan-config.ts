@@ -29,7 +29,7 @@ import "server-only";
  * interface's IP address.
  *
  * Env vars (all optional, with safe defaults):
- *   SCAN_SSH_USERNAME              default "root"
+ *   SCAN_SSH_USERNAME              default "user"
  *   SCAN_SSH_DEFAULT_PORT          default 22
  *   SCAN_SSH_READY_TIMEOUT_MS      default 10000  (ssh2 ConnectConfig.readyTimeout)
  *   SCAN_SSH_SOCKET_TIMEOUT_MS     default unset  (ssh2 ConnectConfig.timeout)
@@ -69,7 +69,7 @@ function optNumEnv(name: string): number | undefined {
 }
 
 export interface ScanConfig {
-  /** SSH user. Scans connect as root because most audit commands need privilege. */
+  /** SSH user. Scans connect as this user unless the asset overrides it. */
   username: string;
   /** Port used when an asset IP has no explicit `host:port`. */
   defaultPort: number;
@@ -92,7 +92,7 @@ export interface ScanConfig {
 }
 
 export const scanConfig: ScanConfig = {
-  username: strEnv("SCAN_SSH_USERNAME", "root"),
+  username: strEnv("SCAN_SSH_USERNAME", "user"),
   defaultPort: numEnv("SCAN_SSH_DEFAULT_PORT", 22),
   readyTimeoutMs: numEnv("SCAN_SSH_READY_TIMEOUT_MS", 10_000),
   socketTimeoutMs: optNumEnv("SCAN_SSH_SOCKET_TIMEOUT_MS"),

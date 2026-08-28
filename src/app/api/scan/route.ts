@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
         send({ type: "status", stage: "testing_connectivity" });
         // Connect as the SSH account stored on the asset (falls back to the
-        // scan-config default, "root", for rows created before the column).
+        // scan-config default, "user", for rows created before the column).
         const username = asset.username || scanConfig.username;
         scanner.setTarget(host, username, password, port);
         const connected = await scanner.connect();

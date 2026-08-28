@@ -26,7 +26,7 @@ export function CreateAssetModal({
 }) {
   const [title, setTitle] = useState("");
   const [ipAddress, setIpAddress] = useState("");
-  const [username, setUsername] = useState("root");
+  const [username, setUsername] = useState("user");
   const [cisId, setCisId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -34,7 +34,7 @@ export function CreateAssetModal({
   const reset = () => {
     setTitle("");
     setIpAddress("");
-    setUsername("root");
+    setUsername("user");
     setCisId("");
     setError(null);
   };
@@ -90,14 +90,14 @@ export function CreateAssetModal({
             <Form.Label>SSH username</Form.Label>
             <Form.Control
               type="text"
-              placeholder="e.g. root"
+              placeholder="e.g. user"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
             />
             <Form.Text muted>
               The account the scanner connects as when auditing this asset. Most audit commands
-              need privilege, so <code>root</code> is the usual choice.
+              need privilege, so use an account with sufficient rights (e.g. <code>root</code>).
             </Form.Text>
           </Form.Group>
           <CisSelect templates={templates} value={cisId} onChange={setCisId} />
