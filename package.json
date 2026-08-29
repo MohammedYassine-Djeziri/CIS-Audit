@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/shell-quote.test.ts",
+    "test": "tsx --test src/lib/shell-quote.test.ts src/lib/sanitize.test.ts",
     "cis:insert": "tsx prisma/insert-cis-template.ts"
   },
   "dependencies": {

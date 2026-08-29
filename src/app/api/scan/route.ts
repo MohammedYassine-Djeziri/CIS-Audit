@@ -4,6 +4,7 @@ import { CisContentError, parseCisContent } from "@/lib/cis-parser";
 import { scanner } from "@/lib/scanner";
 import { scanConfig } from "@/lib/scan-config";
 import { recordScan } from "@/lib/scan-history";
+import { redactSecret } from "@/lib/sanitize";
 import type { ScanEvent } from "@/lib/types";
 
 /**
@@ -142,9 +143,13 @@ export async function POST(req: NextRequest) {
         let passedCount = 0;
         let failedCount = 0;
         let errorCount = 0;
+        // How audit commands run on this target (shown in the rule-details
+        // modal as "Execution mode"): directly as root, or elevated through
+        // sudo — matching the scanner's privilege model exactly.
+        const executionMode = asset.username === "root" ? ("root" as const) : ("sudo" as const);
         for (let i = 0; i < tests.length; i++) {
           const test = tests[i];
-          const { status, error } = await scanner.runTest(test);
+          const { status, error, errorCategory, code } = await scanner.runTest(test);
           if (status === "passed") passedCount++;
           else if (status === "failed") failedCount++;
           else errorCount++;
@@ -152,12 +157,29 @@ export async function POST(req: NextRequest) {
             type: "test_result",
             index: i + 1,
             rule_id: test.rule_id,
+            number: test.number,
             title: test.title,
             severity: test.severity,
             status,
+            // Details-modal fields, ALWAYS included (same shape for every
+            // result — simplifies client state handling). auditCommands are
+            // the original benchmark commands, never the internal sudo
+            // wrapper, and never any stdin/stdout content.
+            auditCommands: test.audit_command,
+            auditProcedure: test.audit_procedure,
+            remediation: test.remediation,
+            executionMode,
             // Short execution diagnostic only (plan §12) — no command output:
             // stdout can contain sensitive system information (e.g. /etc/shadow).
-            ...(status === "error" && error ? { error } : {}),
+            // Redacted with the request password once more (defense in depth
+            // beyond the scanner's own sanitization) and hard-truncated.
+            ...(status === "error" && error
+              ? {
+                  error: redactSecret(error, password),
+                  errorCategory,
+                  exit_code: code,
+                }
+              : {}),
           });
         }
 

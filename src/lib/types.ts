@@ -26,6 +26,58 @@ export type CheckType =
 export type TestStatus = "passed" | "failed" | "error";
 
 /**
+ * Broad failure class of a status "error" result, used by the UI to suggest a
+ * sensible operational action (never a CIS remediation — that only applies to
+ * real findings, not to scanner execution problems):
+ *   - "timeout":   the audit command exceeded the per-command time limit.
+ *   - "execution": sudo failure, permission denied, command not found, …
+ *   - "channel":   SSH channel/connection error while the command ran.
+ */
+export type ScanErrorCategory = "timeout" | "execution" | "channel";
+
+/**
+ * The full per-rule payload of a `test_result` event (plan §5, extended for
+ * the rule-details modal). The same shape is ALWAYS sent for passed, failed,
+ * and error results — one shape keeps client state handling and report
+ * generation simple, and CIS templates are small enough that the extra
+ * response size is not a concern.
+ *
+ * Security invariants (plan §12):
+ *  - `auditCommands` holds the ORIGINAL benchmark commands only — never the
+ *    internally generated `sudo -S -p '' -- /bin/sh -c '...'` wrapper.
+ *  - No command stdout/stderr is streamed (it can contain sensitive system
+ *    data such as /etc/shadow contents).
+ *  - `error` (error results only) is a short, sanitized, truncated
+ *    diagnostic; the SSH password is never present anywhere in the payload.
+ */
+export interface ScanTestResult {
+  index: number;
+  rule_id: string;
+  number: string;
+  title: string;
+  severity: string;
+  status: TestStatus;
+  /** Original benchmark audit commands, one entry per command, run in order. */
+  auditCommands: string[];
+  /** Human-readable audit text from the benchmark, shown in the UI. */
+  auditProcedure: string;
+  /** Benchmark remediation text — displayed for failed rules, never as the fix for scanner errors. */
+  remediation: string;
+  /**
+   * How the audit commands were executed on the target: directly when
+   * connected as root, otherwise elevated through sudo (shown as a note in
+   * the details modal).
+   */
+  executionMode: "root" | "sudo";
+  /** Short diagnostic for status "error" — never contains secrets or full output. */
+  error?: string;
+  /** Broad failure class for status "error" (see ScanErrorCategory). */
+  errorCategory?: ScanErrorCategory;
+  /** Exit code of the audit command that failed to execute (error results). */
+  exit_code?: number;
+}
+
+/**
  * One rule of a CIS/STIG-style benchmark, in the generalized shape of plan §3. */
 export interface CisTest {
   rule_id: string;
@@ -63,14 +115,7 @@ export type ScanEvent =
     }
   | {
       type: "test_result";
-      index: number;
-      rule_id: string;
-      title: string;
-      severity: string;
-      status: TestStatus;
-      /** Short diagnostic for status "error" — never contains secrets or full output. */
-      error?: string;
-    }
+    } & ScanTestResult
   | {
       type: "complete";
       score: number;

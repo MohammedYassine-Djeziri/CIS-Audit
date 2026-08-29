@@ -19,6 +19,9 @@ const STAGE_LABELS: Record<string, string> = {
  * Live scan progress (plan §8): shows the current stage from the event
  * stream, a per-test list as test_result events arrive, the final summary
  * on `complete`, and connection/command errors.
+ *
+ * `onShowDetails` lifts the selected result up to AssetDetailView, which
+ * renders the one shared RuleDetailsModal for all rows.
  */
 export function ScanProgressPanel({
   scanning,
@@ -27,6 +30,7 @@ export function ScanProgressPanel({
   results,
   summary,
   error,
+  onShowDetails,
 }: {
   scanning: boolean;
   stage: string | null;
@@ -40,6 +44,7 @@ export function ScanProgressPanel({
     total: number;
   } | null;
   error: string | null;
+  onShowDetails: (result: TestResult) => void;
 }) {
 
   
@@ -77,7 +82,7 @@ export function ScanProgressPanel({
       {results.length > 0 && (
         <div className="list-group list-group-flush" style={{ maxHeight: "24rem", overflowY: "auto" }}>
           {results.map((result) => (
-            <TestResultRow key={result.index} result={result} />
+            <TestResultRow key={result.index} result={result} onShowDetails={onShowDetails} />
           ))}
         </div>
       )}

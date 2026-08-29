@@ -6,20 +6,20 @@ import Container from "react-bootstrap/Container";
 import { useCurrentAsset } from "@/lib/store";
 import { getHistory } from "@/lib/actions/history";
 import { runScanStream } from "@/lib/scan-client";
-import type { AssetSummary, HistoryEntry, ScanEvent } from "@/lib/types";
+import type {
+  AssetSummary,
+  HistoryEntry,
+  ScanEvent,
+  ScanTestResult as TestResult,
+} from "@/lib/types";
 import { HistoryTable } from "./HistoryTable";
 import { ScanButton } from "./ScanButton";
 import { PasswordPromptModal } from "./PasswordPromptModal";
 import { ScanProgressPanel } from "./ScanProgressPanel";
+import { RuleDetailsModal } from "./RuleDetailsModal";
 
-export interface TestResult {
-  index: number;
-  rule_id: string;
-  title: string;
-  severity: string;
-  status: "passed" | "failed" | "error";
-  error?: string;
-}
+/** The full per-rule result shape streamed by POST /api/scan (plan §5). */
+export type { TestResult };
 
 /**
  * Asset detail view (plan §8, `/assets/[id]`). Owns the live scan state fed
@@ -49,6 +49,9 @@ export function AssetDetailView({
     null,
   );
   const [scanError, setScanError] = useState<string | null>(null);
+  // The result shown in the rule-details modal — ONE modal for all rows,
+  // rendered once below (not one Bootstrap modal per rule).
+  const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
 
   const setAsset = useCurrentAsset((s) => s.setAsset);
   const clearPassword = useCurrentAsset((s) => s.clearPassword);
@@ -73,18 +76,28 @@ export function AssetDetailView({
           }
           break;
         case "test_result": {
-
-        
+          // The event carries the FULL details shape (rule number, audit
+          // commands, procedure, remediation, execution mode, and — for
+          // error results — the sanitized diagnostic/exit code). Same shape
+          // for every status, so no conditional state handling is needed.
+          const result: TestResult = {
+            index: event.index,
+            rule_id: event.rule_id,
+            number: event.number,
+            title: event.title,
+            severity: event.severity,
+            status: event.status,
+            auditCommands: event.auditCommands,
+            auditProcedure: event.auditProcedure,
+            remediation: event.remediation,
+            executionMode: event.executionMode,
+            error: event.error,
+            errorCategory: event.errorCategory,
+            exit_code: event.exit_code,
+          };
           setResults((prev) => [
             ...prev.filter((r) => r.index !== event.index),
-            {
-              index: event.index,
-              rule_id: event.rule_id,
-              title: event.title,
-              severity: event.severity,
-              status:event.status ,
-              error: event.error,
-            },
+            result,
           ]);
           break;
         }
@@ -150,6 +163,7 @@ export function AssetDetailView({
         results={results}
         summary={summary}
         error={scanError}
+        onShowDetails={setSelectedResult}
       />
 
       <h2 className="h5 mt-4">Scan history</h2>
@@ -160,6 +174,12 @@ export function AssetDetailView({
         asset={asset}
         onHide={() => setShowPasswordModal(false)}
         onSubmit={handleScanSubmit}
+      />
+
+      <RuleDetailsModal
+        result={selectedResult}
+        show={selectedResult !== null}
+        onHide={() => setSelectedResult(null)}
       />
     </Container>
   );

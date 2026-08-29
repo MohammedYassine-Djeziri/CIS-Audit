@@ -1,8 +1,9 @@
 import "server-only";
 import { NodeSSH } from "node-ssh";
-import type { CisTest, CheckType, TestStatus } from "./types";
+import type { CisTest, CheckType, TestStatus, ScanErrorCategory } from "./types";
 import { scanConfig, baseConnectOptions } from "./scan-config";
 import { shellQuote } from "./shell-quote";
+import { sanitizeDiagnostic } from "./sanitize";
 
 export interface CommandResult {
   stdout: string;
@@ -19,6 +20,8 @@ export interface CommandResult {
 export interface RuleResult {
   status: TestStatus;
   error?: string;
+  /** Broad failure class for status "error" (see ScanErrorCategory in types). */
+  errorCategory?: ScanErrorCategory;
   stdout: string;
   stderr: string;
   code: number;
@@ -288,6 +291,11 @@ class Scanner {
    * `check` — but only if every command actually executed. Any execution
    * failure (sudo, permission, command not found, timeout, channel error)
    * yields status "error" and the check is not applied (fail closed).
+   *
+   * The returned RuleResult carries the command executions (stdout, stderr,
+   * exit code of the last command) alongside the status; the scan route
+   * decides which parts are safe to stream. Every `error` diagnostic is
+   * sanitized here: password-redacted and truncated (Phase 1, step 4).
    */
   async runTest(test: CisTest): Promise<RuleResult> {
     const stdoutChunks: string[] = [];
@@ -302,7 +310,14 @@ class Scanner {
         // Timeout or SSH channel error — the audit could not be evaluated.
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[scanner] command errored for ${test.rule_id}: ${message}`);
-        return { status: "error", error: message, stdout: "", stderr: "", code: -1 };
+        return {
+          status: "error",
+          error: this.sanitizeDiagnostic(message),
+          errorCategory: message.includes("timed out") ? "timeout" : "channel",
+          stdout: "",
+          stderr: "",
+          code: -1,
+        };
       }
 
       code = res.code;
@@ -314,7 +329,8 @@ class Scanner {
         console.error(`[scanner] execution error for ${test.rule_id}: ${execError}`);
         return {
           status: "error",
-          error: execError,
+          error: this.sanitizeDiagnostic(execError),
+          errorCategory: "execution",
           stdout: stdoutChunks.join("\n"),
           stderr: stderrChunks.join("\n"),
           code,
@@ -330,6 +346,17 @@ class Scanner {
       stderr: stderrChunks.join("\n"),
       code,
     };
+  }
+
+  /**
+   * Applies the shared safeguards (password redaction + hard truncation) to
+   * any diagnostic message this scanner is about to return. Defense in
+   * depth: the scan route redacts again with the request's password, but the
+   * scanner never lets its own copy of the secret into a result in the first
+   * place.
+   */
+  private sanitizeDiagnostic(message: string): string {
+    return sanitizeDiagnostic(message, this.password);
   }
 
   disconnect(): void {
