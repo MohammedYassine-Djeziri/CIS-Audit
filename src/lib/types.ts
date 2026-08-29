@@ -15,7 +15,18 @@ export type CheckType =
   | { type: "numeric_gte"; value: number } // pass if a number extracted from stdout >= value
   | { type: "manual" }; // not automatable — never executed by the scanner
 
-/** One rule of a CIS/STIG-style benchmark, in the generalized shape of plan §3. */
+/**
+ * One rule's evaluation result (plan §9): the audit was either executed and
+ * confirmed compliance ("passed"), executed and confirmed a finding
+ * ("failed"), or could NOT be evaluated reliably ("error" — sudo failure,
+ * permission denied, command not found, timeout, SSH channel error). An
+ * execution problem must never be presented as a confirmed compliance
+ * failure, and errors are reported separately in the final summary.
+ */
+export type TestStatus = "passed" | "failed" | "error";
+
+/**
+ * One rule of a CIS/STIG-style benchmark, in the generalized shape of plan §3. */
 export interface CisTest {
   rule_id: string;
   number: string;
@@ -37,19 +48,37 @@ export interface CisTest {
 export type ScanEvent =
   | {
       type: "status";
-      stage: "preparing" | "testing_connectivity" | "connected" | "scanning_started";
+      stage:
+        | "preparing"
+        | "testing_connectivity"
+        | "connected"
+        | "verifying_privileges"
+        | "scanning_started";
       total?: number;
     }
-  | { type: "error"; stage: "invalid_template" | "connection_failed" | "scan_failed"; message: string }
+  | {
+      type: "error";
+      stage: "invalid_template" | "connection_failed" | "privilege_failed" | "scan_failed";
+      message: string;
+    }
   | {
       type: "test_result";
       index: number;
       rule_id: string;
       title: string;
       severity: string;
-      passed: boolean;
+      status: TestStatus;
+      /** Short diagnostic for status "error" — never contains secrets or full output. */
+      error?: string;
     }
-  | { type: "complete"; score: number; passed: number; total: number };
+  | {
+      type: "complete";
+      score: number;
+      passed: number;
+      failed: number;
+      errors: number;
+      total: number;
+    };
 
 /**
  * Plain, serializable shapes the UI consumes (no Prisma models cross the

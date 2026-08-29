@@ -120,25 +120,59 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        send({ type: "status", stage: "verifying_privileges" });
+        // Privilege preflight (plan §4): after SSH connectivity succeeds but
+        // BEFORE any rule runs. root → `id -u`; non-root → `sudo -S -k -p ''
+        // -- id -u` with the entered password via stdin. A failed preflight
+        // stops the COMPLETE scan — no audit command is ever executed.
+        const privileges = await scanner.verifyPrivileges();
+        if (!privileges.ok) {
+          send({
+            type: "error",
+            stage: "privilege_failed",
+            message:
+              privileges.message ??
+              "SSH connected, but the account could not run commands as root.",
+          });
+          return; // ends the stream — no history written
+        }
+
         send({ type: "status", stage: "scanning_started", total: tests.length });
 
         let passedCount = 0;
+        let failedCount = 0;
+        let errorCount = 0;
         for (let i = 0; i < tests.length; i++) {
           const test = tests[i];
-          const { passed } = await scanner.runTest(test);
-          if (passed) passedCount++;
+          const { status, error } = await scanner.runTest(test);
+          if (status === "passed") passedCount++;
+          else if (status === "failed") failedCount++;
+          else errorCount++;
           send({
             type: "test_result",
             index: i + 1,
             rule_id: test.rule_id,
             title: test.title,
             severity: test.severity,
-            passed,
+            status,
+            // Short execution diagnostic only (plan §12) — no command output:
+            // stdout can contain sensitive system information (e.g. /etc/shadow).
+            ...(status === "error" && error ? { error } : {}),
           });
         }
 
+        // Errors are never counted as passed (plan §9): score is the share of
+        // rules that were executed and confirmed compliant; errors are
+        // reported separately so an unevaluable rule is visible, not hidden.
         const score = tests.length > 0 ? Math.round((passedCount / tests.length) * 100) : 0;
-        send({ type: "complete", score, passed: passedCount, total: tests.length });
+        send({
+          type: "complete",
+          score,
+          passed: passedCount,
+          failed: failedCount,
+          errors: errorCount,
+          total: tests.length,
+        });
 
         // Only a completed scan (with at least one mechanical check) counts
         // as history.

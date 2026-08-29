@@ -39,7 +39,7 @@ import "server-only";
  *   SCAN_SSH_KEEPALIVE_INTERVAL_MS default unset  (ssh2 ConnectConfig.keepaliveInterval)
  *   SCAN_SSH_LOCAL_ADDRESS         default unset  (ssh2 ConnectConfig.localAddress)
  *   SCAN_SSH_LOCAL_PORT            default unset  (ssh2 ConnectConfig.localPort)
- *   SCAN_COMMAND_TIMEOUT_MS        default unset  (per audit-command guard)
+ *   SCAN_COMMAND_TIMEOUT_MS        default 60000  (per audit-command guard)
  */
 
 function numEnv(name: string, fallback: number): number {
@@ -76,7 +76,7 @@ export interface ScanConfig {
   /** Optional SSH keepalive interval in ms (ssh2 `keepaliveInterval`). */
   keepaliveIntervalMs?: number;
   /** Optional per audit-command timeout in ms (scanner-side guard). */
-  commandTimeoutMs?: number;
+  commandTimeoutMs: number;
   /**
    * Optional SOURCE IP of the network interface to bind/connect from
    * (ssh2 `localAddress`). Unset by default — the OS routing table picks
@@ -92,7 +92,9 @@ export const scanConfig: ScanConfig = {
   readyTimeoutMs: numEnv("SCAN_SSH_READY_TIMEOUT_MS", 10_000),
   socketTimeoutMs: optNumEnv("SCAN_SSH_SOCKET_TIMEOUT_MS"),
   keepaliveIntervalMs: optNumEnv("SCAN_SSH_KEEPALIVE_INTERVAL_MS"),
-  commandTimeoutMs: optNumEnv("SCAN_COMMAND_TIMEOUT_MS"),
+  // Bounded runtime for EVERY audit command (plan §11): a hung `find /` must
+  // never stall a scan forever. Default 60s (SCAN_COMMAND_TIMEOUT_MS).
+  commandTimeoutMs: numEnv("SCAN_COMMAND_TIMEOUT_MS", 60_000),
   localAddress: optStrEnv("SCAN_SSH_LOCAL_ADDRESS"),
   localPort: optNumEnv("SCAN_SSH_LOCAL_PORT"),
 };

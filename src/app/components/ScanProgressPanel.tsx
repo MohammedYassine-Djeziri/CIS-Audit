@@ -10,6 +10,7 @@ const STAGE_LABELS: Record<string, string> = {
   preparing: "Preparing scan…",
   testing_connectivity: "Testing connectivity…",
   connected: "Connected — starting tests…",
+  verifying_privileges: "Verifying privileges…",
   scanning_started: "Running tests…",
   complete: "Scan complete",
 };
@@ -31,7 +32,13 @@ export function ScanProgressPanel({
   stage: string | null;
   total: number;
   results: TestResult[];
-  summary: { score: number; passed: number; total: number } | null;
+  summary: {
+    score: number;
+    passed: number;
+    failed: number;
+    errors: number;
+    total: number;
+  } | null;
   error: string | null;
 }) {
   if (!scanning && !summary && !error) return null; // nothing to show yet
@@ -76,6 +83,8 @@ export function ScanProgressPanel({
         <ScanSummary
           score={summary.score}
           passed={summary.passed}
+          failed={summary.failed}
+          errors={summary.errors}
           total={summary.total}
           error={error}
         />

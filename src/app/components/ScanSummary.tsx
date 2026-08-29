@@ -3,18 +3,23 @@
 import ProgressBar from "react-bootstrap/ProgressBar";
 
 /**
- * Final score, shown once the `complete` event arrives (plan §8). The
+ * Final score, shown once the `complete` event arrives (plan §8, §9). The
  * history table refresh itself is triggered by the detail view when this
- * event is received.
+ * event is received. Errors are reported separately — they are never counted
+ * as passed.
  */
 export function ScanSummary({
   score,
   passed,
+  failed,
+  errors,
   total,
   error,
 }: {
   score: number;
   passed: number;
+  failed: number;
+  errors: number;
   total: number;
   error?: string | null;
 }) {
@@ -24,7 +29,8 @@ export function ScanSummary({
       <h3 className="h5 mb-2">
         Score: <span className={`text-${variant}`}>{score}%</span>
         <span className="text-body-secondary fw-normal fs-6 ms-2">
-          ({passed}/{total} checks passed)
+          ({passed}/{total} passed, {failed} failed
+          {errors > 0 ? `, ${errors} error${errors === 1 ? "" : "s"}` : ""})
         </span>
       </h3>
       <ProgressBar now={score} variant={variant} style={{ height: "1.25rem" }} />

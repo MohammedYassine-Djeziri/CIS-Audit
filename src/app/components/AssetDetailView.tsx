@@ -17,7 +17,8 @@ export interface TestResult {
   rule_id: string;
   title: string;
   severity: string;
-  passed: boolean;
+  status: "passed" | "failed" | "error";
+  error?: string;
 }
 
 /**
@@ -38,7 +39,13 @@ export function AssetDetailView({
   const [stage, setStage] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [summary, setSummary] = useState<{ score: number; passed: number; total: number } | null>(
+  const [summary, setSummary] = useState<{
+    score: number;
+    passed: number;
+    failed: number;
+    errors: number;
+    total: number;
+  } | null>(
     null,
   );
   const [scanError, setScanError] = useState<string | null>(null);
@@ -73,12 +80,19 @@ export function AssetDetailView({
               rule_id: event.rule_id,
               title: event.title,
               severity: event.severity,
-              passed: event.passed,
+              status: event.status,
+              error: event.error,
             },
           ]);
           break;
         case "complete":
-          setSummary({ score: event.score, passed: event.passed, total: event.total });
+          setSummary({
+            score: event.score,
+            passed: event.passed,
+            failed: event.failed,
+            errors: event.errors,
+            total: event.total,
+          });
           setStage("complete");
           break;
         case "error":
