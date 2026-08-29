@@ -41,6 +41,9 @@ export function ScanProgressPanel({
   } | null;
   error: string | null;
 }) {
+
+  
+
   if (!scanning && !summary && !error) return null; // nothing to show yet
 
   return (

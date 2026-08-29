@@ -15,6 +15,10 @@ const STATUS_BADGES: Record<
 /** One live-updating line per test_result event (plan §8, §9, §12). */
 export function TestResultRow({ result }: { result: TestResult }) {
   const badge = STATUS_BADGES[result.status] ?? STATUS_BADGES.error;
+
+  //console.log("test status = " , result.status, " , badge = ", badge);
+
+  
   return (
     <ListGroup.Item className="d-flex justify-content-between align-items-start gap-2 py-2 px-2">
       <div className="me-2">

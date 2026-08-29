@@ -72,7 +72,9 @@ export function AssetDetailView({
             setResults([]);
           }
           break;
-        case "test_result":
+        case "test_result": {
+
+        
           setResults((prev) => [
             ...prev.filter((r) => r.index !== event.index),
             {
@@ -80,11 +82,12 @@ export function AssetDetailView({
               rule_id: event.rule_id,
               title: event.title,
               severity: event.severity,
-              status: event.status,
+              status:event.status ,
               error: event.error,
             },
           ]);
           break;
+        }
         case "complete":
           setSummary({
             score: event.score,
