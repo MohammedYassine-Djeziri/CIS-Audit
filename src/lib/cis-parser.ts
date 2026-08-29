@@ -128,8 +128,12 @@ export function parseCisContent(json: unknown): CisTest[] {
     throw new CisContentError(issues);
   }
 
+  console.log(`[parseCisContent] validated ${json.length} rules, filtering to automated-only...`);
+
   // Shape is fully valid — now filter to what the scanner may execute.
-  return (json as CisTest[]).filter(
+  const automatedRules = (json as CisTest[]).filter(
     (rule) => rule.automated && rule.check.type !== "manual",
   );
+  console.log(`[parseCisContent] filtered to ${automatedRules.length} automated rules.`);
+  return automatedRules;
 }

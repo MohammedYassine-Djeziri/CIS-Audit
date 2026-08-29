@@ -5,7 +5,7 @@ import { scanner } from "@/lib/scanner";
 import { scanConfig } from "@/lib/scan-config";
 import { recordScan } from "@/lib/scan-history";
 import { redactSecret } from "@/lib/sanitize";
-import type { ScanEvent } from "@/lib/types";
+import type { ScanEvent, StoredRuleResult } from "@/lib/types";
 
 /**
  * The one streamed Route Handler (plan §5): POST /api/scan
@@ -147,39 +147,78 @@ export async function POST(req: NextRequest) {
         // modal as "Execution mode"): directly as root, or elevated through
         // sudo — matching the scanner's privilege model exactly.
         const executionMode = asset.username === "root" ? ("root" as const) : ("sudo" as const);
+        // The server-side snapshot (report plan §9/§10): built from TRUSTED
+        // data the scan itself produced — parsed rules + scanner results —
+        // never from anything the client sent. Persisted below and used as
+        // the sole source for report generation.
+        const snapshotResults: StoredRuleResult[] = [];
         for (let i = 0; i < tests.length; i++) {
           const test = tests[i];
-          const { status, error, errorCategory, code } = await scanner.runTest(test);
+          const { status, error, errorCategory, code, executions } = await scanner.runTest(test);
           if (status === "passed") passedCount++;
           else if (status === "failed") failedCount++;
           else errorCount++;
-          send({
-            type: "test_result",
-            index: i + 1,
+
+          // Error results carry a SHORT sanitized diagnostic (plan §12) — no
+          // command output: stdout can contain sensitive system information
+          // (e.g. /etc/shadow). Redacted with the request password once more
+          // (defense in depth beyond the scanner's own sanitization) and
+          // hard-truncated. Command evidence (executions) is already
+          // sanitized/truncated inside the scanner and is stored in the
+          // snapshot only — it is never streamed to the client.
+          const sanitizedError =
+            status === "error" && error ? redactSecret(error, password) : undefined;
+          if (sanitizedError) {
+            send({
+              type: "test_result",
+              index: i + 1,
+              rule_id: test.rule_id,
+              number: test.number,
+              title: test.title,
+              severity: test.severity,
+              status,
+              // Details-modal fields, ALWAYS included (same shape for every
+              // result — simplifies client state handling). auditCommands are
+              // the original benchmark commands, never the internal sudo
+              // wrapper, and never any stdin/stdout content.
+              auditCommands: test.audit_command,
+              auditProcedure: test.audit_procedure,
+              remediation: test.remediation,
+              executionMode,
+              error: sanitizedError,
+              errorCategory,
+              exit_code: code,
+            });
+          } else {
+            send({
+              type: "test_result",
+              index: i + 1,
+              rule_id: test.rule_id,
+              number: test.number,
+              title: test.title,
+              severity: test.severity,
+              status,
+              auditCommands: test.audit_command,
+              auditProcedure: test.audit_procedure,
+              remediation: test.remediation,
+              executionMode,
+            });
+          }
+
+          snapshotResults.push({
             rule_id: test.rule_id,
             number: test.number,
             title: test.title,
             severity: test.severity,
             status,
-            // Details-modal fields, ALWAYS included (same shape for every
-            // result — simplifies client state handling). auditCommands are
-            // the original benchmark commands, never the internal sudo
-            // wrapper, and never any stdin/stdout content.
             auditCommands: test.audit_command,
             auditProcedure: test.audit_procedure,
+            // Snapshot of the remediation text AS IT EXISTS NOW (report §14):
+            // later CIS template edits cannot rewrite a historical report.
             remediation: test.remediation,
+            executions,
+            ...(sanitizedError ? { error: sanitizedError, errorCategory, exit_code: code } : {}),
             executionMode,
-            // Short execution diagnostic only (plan §12) — no command output:
-            // stdout can contain sensitive system information (e.g. /etc/shadow).
-            // Redacted with the request password once more (defense in depth
-            // beyond the scanner's own sanitization) and hard-truncated.
-            ...(status === "error" && error
-              ? {
-                  error: redactSecret(error, password),
-                  errorCategory,
-                  exit_code: code,
-                }
-              : {}),
           });
         }
 
@@ -187,20 +226,42 @@ export async function POST(req: NextRequest) {
         // rules that were executed and confirmed compliant; errors are
         // reported separately so an unevaluable rule is visible, not hidden.
         const score = tests.length > 0 ? Math.round((passedCount / tests.length) * 100) : 0;
+
+        // Only a completed scan (with at least one mechanical check) counts
+        // as history. The snapshot is saved BEFORE the complete event so the
+        // event can carry the trusted scan id (report plan §6/§10) — the id
+        // the client uses to request the report; the report data itself is
+        // loaded server-side from this row, never from browser state.
+        let savedScanId: string | undefined;
+        if (tests.length > 0) {
+          try {
+            const saved = await recordScan({
+              assetId: asset.id,
+              score,
+              passed: passedCount,
+              failed: failedCount,
+              errors: errorCount,
+              total: tests.length,
+              results: snapshotResults,
+            });
+            savedScanId = saved.id;
+          } catch (err) {
+            // A snapshot write failure must not lose the scan the user just
+            // watched complete — finish the stream without a scan id (no
+            // report button), and leave a loud trace in the server log.
+            console.error("[scan] failed to persist scan snapshot:", err);
+          }
+        }
+
         send({
           type: "complete",
+          ...(savedScanId ? { scanId: savedScanId } : {}),
           score,
           passed: passedCount,
           failed: failedCount,
           errors: errorCount,
           total: tests.length,
         });
-
-        // Only a completed scan (with at least one mechanical check) counts
-        // as history.
-        if (tests.length > 0) {
-          await recordScan(asset.id, score);
-        }
       } catch (err) {
         console.error("[scan] unexpected failure:", err);
         send({

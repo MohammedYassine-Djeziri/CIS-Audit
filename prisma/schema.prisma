@@ -39,6 +39,16 @@ model ScanHistory {
   assetId   String
   asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
   score     Int // 0–100, percentage of automated rules passed
+  // Full result snapshot (plan §9/§13): the authoritative, server-owned
+  // record of which rules passed/failed/errored during THIS scan — including
+  // the audit commands, procedure, remediation text as it existed at scan
+  // time, and sanitized per-command evidence. The browser never supplies
+  // report data; reports are generated from this snapshot by scan id.
+  passed    Int      @default(0)
+  failed    Int      @default(0)
+  errors    Int      @default(0)
+  total     Int      @default(0)
+  results   Json     @default("[]") // StoredRuleResult[] — see lib/types.ts
   scannedAt DateTime @default(now())
 
   @@index([assetId])

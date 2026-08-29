@@ -1,9 +1,15 @@
 import "server-only";
 import { NodeSSH } from "node-ssh";
-import type { CisTest, CheckType, TestStatus, ScanErrorCategory } from "./types";
+import type {
+  AuditCommandExecution,
+  CisTest,
+  CheckType,
+  TestStatus,
+  ScanErrorCategory,
+} from "./types";
 import { scanConfig, baseConnectOptions } from "./scan-config";
 import { shellQuote } from "./shell-quote";
-import { sanitizeDiagnostic } from "./sanitize";
+import { prepareReportEvidence, sanitizeDiagnostic } from "./sanitize";
 
 export interface CommandResult {
   stdout: string;
@@ -16,6 +22,12 @@ export interface CommandResult {
  * judged on; stderr and code exist purely for execution diagnostics. `error`
  * is a SHORT diagnostic message for status "error" — it must never contain
  * the command output, the password, or anything else sensitive.
+ *
+ * `executions` carries one sanitized entry per audit command (report feature
+ * plan §13): the ORIGINAL benchmark command, its redacted/scrubbed/truncated
+ * stdout and stderr, and its exit code. This is stored in the scan snapshot
+ * so reports can show the evidence behind a finding; it never leaves the
+ * server otherwise.
  */
 export interface RuleResult {
   status: TestStatus;
@@ -25,6 +37,7 @@ export interface RuleResult {
   stdout: string;
   stderr: string;
   code: number;
+  executions: AuditCommandExecution[];
 }
 
 /**
@@ -300,6 +313,9 @@ class Scanner {
   async runTest(test: CisTest): Promise<RuleResult> {
     const stdoutChunks: string[] = [];
     const stderrChunks: string[] = [];
+    // One sanitized evidence entry per executed audit command (report §13):
+    // original command text, redacted/scrubbed/truncated output, exit code.
+    const executions: AuditCommandExecution[] = [];
     let code = 0;
 
     for (const cmd of test.audit_command) {
@@ -317,12 +333,21 @@ class Scanner {
           stdout: "",
           stderr: "",
           code: -1,
+          executions,
         };
       }
 
       code = res.code;
       if (res.stdout) stdoutChunks.push(res.stdout);
       if (res.stderr) stderrChunks.push(res.stderr);
+      executions.push({
+        // The ORIGINAL benchmark command — never the internal sudo/root-shell
+        // wrapper, never the password, never the sudo stdin (report §13).
+        command: cmd,
+        stdout: this.sanitizeEvidence(res.stdout),
+        stderr: this.sanitizeEvidence(res.stderr),
+        exitCode: res.code,
+      });
 
       const execError = this.executionErrorMessage(res);
       if (execError) {
@@ -334,6 +359,7 @@ class Scanner {
           stdout: stdoutChunks.join("\n"),
           stderr: stderrChunks.join("\n"),
           code,
+          executions,
         };
       }
     }
@@ -345,7 +371,19 @@ class Scanner {
       stdout: combinedStdout,
       stderr: stderrChunks.join("\n"),
       code,
+      executions,
     };
+  }
+
+  /**
+   * Prepares one command's raw output for the persisted snapshot/report
+   * evidence (report §10/§13): redact the SSH password defensively, strip
+   * ANSI/control characters, and hard-cap the length. The password supplied
+   * via sudo stdin can NEVER appear in stdout/stderr, but a badly designed
+   * rule might print it — defense in depth.
+   */
+  private sanitizeEvidence(output: string): string {
+    return prepareReportEvidence(output, this.password);
   }
 
   /**

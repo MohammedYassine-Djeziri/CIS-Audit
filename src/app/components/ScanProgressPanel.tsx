@@ -5,6 +5,7 @@ import ProgressBar from "react-bootstrap/ProgressBar";
 import type { TestResult } from "./AssetDetailView";
 import { TestResultRow } from "./TestResultRow";
 import { ScanSummary } from "./ScanSummary";
+import { ReportButton } from "./ReportButton";
 
 const STAGE_LABELS: Record<string, string> = {
   preparing: "Preparing scan…",
@@ -30,6 +31,7 @@ export function ScanProgressPanel({
   results,
   summary,
   error,
+  completedScanId,
   onShowDetails,
 }: {
   scanning: boolean;
@@ -44,6 +46,12 @@ export function ScanProgressPanel({
     total: number;
   } | null;
   error: string | null;
+  /**
+   * Server-side id of the completed scan's persisted snapshot (report plan
+   * §6). Present only after a SUCCESSFUL, fully recorded scan — the report
+   * button therefore cannot appear for failed/incomplete scans.
+   */
+  completedScanId: string | null;
   onShowDetails: (result: TestResult) => void;
 }) {
 
@@ -96,6 +104,13 @@ export function ScanProgressPanel({
           total={summary.total}
           error={error}
         />
+      )}
+
+      {/* Report button only after a completed, persisted scan (report §4):
+          completedScanId exists only when the `complete` event carried the
+          snapshot id — failed scans never reach that point. */}
+      {completedScanId && summary && !error && (
+        <ReportButton scanId={completedScanId} />
       )}
     </div>
   );

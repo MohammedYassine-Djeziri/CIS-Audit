@@ -49,6 +49,11 @@ export function AssetDetailView({
     null,
   );
   const [scanError, setScanError] = useState<string | null>(null);
+  // Server-side id of the completed scan's persisted snapshot (report plan
+  // §6). Stored ONLY — the report is generated from the server's snapshot
+  // via GET /api/reports/[scanId], never from this component's state, so
+  // browser tampering cannot change report contents.
+  const [completedScanId, setCompletedScanId] = useState<string | null>(null);
   // The result shown in the rule-details modal — ONE modal for all rows,
   // rendered once below (not one Bootstrap modal per rule).
   const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
@@ -110,6 +115,9 @@ export function AssetDetailView({
             total: event.total,
           });
           setStage("complete");
+          // The server saved the scan snapshot before emitting this event;
+          // the id here is what the Generate report button uses (report §6).
+          setCompletedScanId(event.scanId ?? null);
           break;
         case "error":
           setScanError(event.message);
@@ -128,6 +136,9 @@ export function AssetDetailView({
       setTotal(0);
       setSummary(null);
       setScanError(null);
+      // A new scan invalidates the previous scan's report (report plan §4):
+      // the button hides until the new scan completes and persists.
+      setCompletedScanId(null);
 
       await runScanStream(asset.id, password, handleEvent);
 
@@ -163,6 +174,7 @@ export function AssetDetailView({
         results={results}
         summary={summary}
         error={scanError}
+        completedScanId={completedScanId}
         onShowDetails={setSelectedResult}
       />
 

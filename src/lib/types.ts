@@ -118,12 +118,68 @@ export type ScanEvent =
     } & ScanTestResult
   | {
       type: "complete";
+      /**
+       * Database id of the persisted scan snapshot (plan §6). The client
+       * stores ONLY this id and uses it to request the report — report data
+       * itself is loaded server-side from the trusted snapshot, so browser
+       * tampering cannot change what a report says. Optional in the type
+       * because a snapshot write failure must not break the scan stream.
+       */
+      scanId?: string;
       score: number;
       passed: number;
       failed: number;
       errors: number;
       total: number;
     };
+
+/**
+ * Command-level result retained for reports (plan §13): the ORIGINAL
+ * benchmark command (never the internal `sudo -S -p '' -- /bin/sh -c '...'`
+ * wrapper) alongside its sanitized, truncated stdout/stderr and exit code.
+ * The SSH password is never present — outputs are redacted and scrubbed
+ * before they are stored (lib/sanitize.ts, prepareReportEvidence).
+ */
+export interface AuditCommandExecution {
+  command: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+/**
+ * One rule of the SERVER-SIDE scan snapshot persisted in
+ * `ScanHistory.results` (plan §9/§14): the authoritative, immutable record
+ * of what was executed and found during one specific scan. This is the only
+ * source report generation trusts — never client state. It carries the
+ * remediation/audit text AS IT EXISTED at scan time, so later edits to the
+ * CIS template cannot alter a historical report.
+ *
+ * Command evidence (`executions`) is stored here for reports only — it is
+ * deliberately NOT part of the live `test_result` stream, whose payloads
+ * (ScanTestResult) never contain command output.
+ */
+export interface StoredRuleResult {
+  rule_id: string;
+  number: string;
+  title: string;
+  severity: string;
+  status: TestStatus;
+  /** Original benchmark audit commands, in execution order. */
+  auditCommands: string[];
+  auditProcedure: string;
+  /** Benchmark remediation snapshot at scan time (failed rules only in reports). */
+  remediation: string;
+  /** Sanitized per-command evidence (stdout/stderr/exit code). */
+  executions: AuditCommandExecution[];
+  /** Short sanitized diagnostic for status "error" results. */
+  error?: string;
+  errorCategory?: ScanErrorCategory;
+  /** Exit code of the audit command that failed to execute (error results). */
+  exit_code?: number;
+  /** How the commands were executed ("root" directly, or via sudo). */
+  executionMode: "root" | "sudo";
+}
 
 /**
  * Plain, serializable shapes the UI consumes (no Prisma models cross the
@@ -143,5 +199,16 @@ export interface AssetSummary {
 export interface HistoryEntry {
   id: string;
   score: number;
+  /** Detailed counts from the persisted snapshot (plan §12). */
+  passed: number;
+  failed: number;
+  errors: number;
+  total: number;
+  /**
+   * Whether the row carries a full result snapshot. Scans recorded before
+   * snapshot persistence (and, defensively, any row with an empty results
+   * array) cannot produce a detailed report — no Download is offered.
+   */
+  hasDetails: boolean;
   scannedAt: string; // ISO string
 }

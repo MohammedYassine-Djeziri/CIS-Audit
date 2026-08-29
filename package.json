@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/shell-quote.test.ts src/lib/sanitize.test.ts",
+    "test": "tsx --test --conditions=react-server src/lib/shell-quote.test.ts src/lib/sanitize.test.ts src/lib/report.test.ts",
     "cis:insert": "tsx prisma/insert-cis-template.ts"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "bootstrap": "^5.3.8",
     "next": "16.3.3",
     "node-ssh": "^13.2.1",
+    "pdfkit": "^0.20.1",
     "react": "19.2.8",
     "react-bootstrap": "^2.10.10",
     "react-dom": "19.2.8",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ssh2": "^1.15.5",

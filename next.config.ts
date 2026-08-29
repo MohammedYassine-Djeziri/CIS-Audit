@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   // node-ssh (and its ssh2 dependency) are Node-only libraries — keep them
   // out of the bundler so the scan Route Handler can use Node's net module.
-  serverExternalPackages: ["node-ssh", "ssh2"],
+  // pdfkit likewise loads its standard-font AFM metrics from disk at runtime.
+  serverExternalPackages: ["node-ssh", "ssh2", "pdfkit"],
 };
 
 export default nextConfig;

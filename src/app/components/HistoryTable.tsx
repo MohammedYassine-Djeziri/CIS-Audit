@@ -18,8 +18,12 @@ export function HistoryTable({ history }: { history: HistoryEntry[] }) {
     <Table striped hover responsive>
       <thead>
         <tr>
-          <th style={{ width: "8rem" }}>Score</th>
+          <th style={{ width: "10rem" }}>Score</th>
+          <th className="text-center">Passed</th>
+          <th className="text-center">Failed</th>
+          <th className="text-center">Errors</th>
           <th>Scanned at</th>
+          <th>Report</th>
         </tr>
       </thead>
       <tbody>
