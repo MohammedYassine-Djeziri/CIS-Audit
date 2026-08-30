@@ -137,13 +137,26 @@ export function AssetDetailView({
       setSummary(null);
       setScanError(null);
       // A new scan invalidates the previous scan's report (report plan §4):
-      // the button hides until the new scan completes and persists.
+      // the button hides until the new scan completes and persists. It also
+      // supersedes the rule shown in the details modal.
       setCompletedScanId(null);
+      setSelectedResult(null);
 
-      await runScanStream(asset.id, password, handleEvent);
+      try {
+        await runScanStream(asset.id, password, handleEvent);
+      } catch (err) {
+        // Mid-stream failure (e.g. the reader rejected after a network drop).
+        // The stream usually reports these via a typed error event; this
+        // backstop covers the cases where the socket itself failed.
+        setScanError(err instanceof Error ? err.message : String(err));
+      } finally {
+        // The password's useful life is over — clear it in EVERY path (also
+        // when the scan failed or the stream threw), and never leave the UI
+        // stuck in "scanning".
+        setScanning(false);
+        clearPassword();
+      }
 
-      setScanning(false);
-      clearPassword(); // password's useful life is over — clear it immediately
       await refreshHistory(); // picks up the new ScanHistory row (if any)
     },
     [asset.id, handleEvent, clearPassword, refreshHistory],

@@ -22,6 +22,13 @@ function pdfText(pdf: Buffer): string {
   // NOTE: "(?<!end)" so the tail of "endstream" does not match — that would
   // misalign the scan and skip the next page's content stream.
   const re = /(?<!end)stream\r?\n/g;
+  // PDFKit encodes text as WinAnsi bytes in hex strings ("<434953...>"),
+  // NOT UTF-8 — so '—' (U+2014) becomes byte 0x97. Decoding with
+  // windows-1252 maps the 0x80–0x9F range to the correct glyphs where plain
+  // latin1 would produce control characters. ASCII is unaffected.
+  const winAnsi = new TextDecoder("windows-1252");
+  const decodeHex = (hex: string): string =>
+    winAnsi.decode(Buffer.from(hex.replace(/\s+/g, ""), "hex"));
   let match: RegExpExecArray | null;
   while ((match = re.exec(raw))) {
     const start = match.index + match[0].length;
@@ -45,14 +52,10 @@ function pdfText(pdf: Buffer): string {
     content = content.replace(
       /\[((?:<[0-9A-Fa-f\s]*>|-?[\d.]+|[\s])*)\]\s*TJ/g,
       (_m, arr: string) =>
-        (arr.match(/<[0-9A-Fa-f\s]*>/g) ?? [])
-          .map((h) => Buffer.from(h.slice(1, -1).replace(/\s+/g, ""), "hex").toString("latin1"))
-          .join(""),
+        (arr.match(/<[0-9A-Fa-f\s]*>/g) ?? []).map((h) => decodeHex(h.slice(1, -1))).join(""),
     );
     // Any remaining standalone hex strings (plain `(...) Tj` / second runs).
-    content = content.replace(/<([0-9A-Fa-f\s]+)>/g, (_m, hex: string) =>
-      Buffer.from(hex.replace(/\s+/g, ""), "hex").toString("latin1"),
-    );
+    content = content.replace(/<([0-9A-Fa-f\s]+)>/g, (_m, hex: string) => decodeHex(hex));
     parts.push(content);
     re.lastIndex = end;
   }
@@ -139,7 +142,8 @@ test("generates a PDF for an all-passed scan", async () => {
   assert.ok(pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-"));
   const text = pdfText(pdf);
   assert.ok(text.includes("Appendix")); // passed-rules appendix present
-  assert.ok(text.includes("Failed Rules (0)"));
+  assert.ok(text.includes("All evaluated rules passed."));
+  assert.ok(!text.includes("Failed Rule 1")); // no findings section
 });
 
 test("generates a PDF for an all-failed scan with evidence and remediation", async () => {
@@ -149,7 +153,7 @@ test("generates a PDF for an all-failed scan with evidence and remediation", asy
   );
   assert.ok(pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-"));
   const text = pdfText(pdf);
-  assert.ok(text.includes("Failed Rules (1)"));
+  assert.ok(text.includes("Failed Rule 1"));
   assert.ok(text.includes("UBTU-24-300027"));
   // Evidence (sanitized stdout) and remediation are rendered.
   assert.ok(text.includes("test-account"));
@@ -162,7 +166,7 @@ test("generates a PDF with a separate error section for unevaluated rules", asyn
     baseData({ score: 0, passed: 0, failed: 1, errors: 1, total: 2, results }),
   );
   const text = pdfText(pdf);
-  assert.ok(text.includes("Rules That Could Not Be Evaluated (1)"));
+  assert.ok(text.includes("Rules That Could Not Be Evaluated"));
   assert.ok(text.includes("UBTU-24-600150"));
   assert.ok(text.includes("Command timed out"));
   // The error section must NOT present CIS remediation as the fix.
@@ -174,7 +178,10 @@ test("generates a PDF for a zero-result snapshot (degenerate ring, no crash)", a
     baseData({ score: 0, passed: 0, failed: 0, errors: 0, total: 0, results: [] }),
   );
   assert.ok(pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-"));
+  const text = pdfText(pdf);
+  assert.ok(text.includes("No automated rules were available for evaluation."));
 });
+
 
 // --- Filename sanitization (report plan §1) --------------------------------
 
@@ -193,3 +200,145 @@ test("buildReportFilename falls back when names sanitize to empty", () => {
   const name = buildReportFilename("///", "***", new Date("2026-08-29T12:00:00Z"));
   assert.equal(name, "asset-cis-report-2026-08-29.pdf");
 });
+
+// --- Layout / pagination regression fixtures (visual review) ----------------
+
+/** Number of PDF page objects (not /Pages) — a cheap page count. */
+function pageCount(pdf: Buffer): number {
+  return (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+}
+
+test("footers number every page of a multi-page report (bufferPages)", async () => {
+  // 100-rule passed appendix forces several pages.
+  const results = Array.from({ length: 100 }, (_, i) =>
+    rule("passed", `UBTU-24-9${String(i).padStart(4, "0")}`),
+  );
+  const pdf = await generateComplianceReport(
+    baseData({ score: 100, passed: 100, failed: 0, errors: 0, total: 100, results }),
+  );
+  const pages = pageCount(pdf);
+  assert.ok(pages > 1, `expected a multi-page report, got ${pages} page(s)`);
+  const text = pdfText(pdf);
+  // Every page carries a "Page X of Y" footer with the CORRECT total —
+  // without bufferPages only the last page would say "Page 1 of 1".
+  assert.ok(text.includes(`Page 1 of ${pages}`));
+  assert.ok(text.includes(`Page ${pages} of ${pages}`));
+  assert.ok(!text.includes("Page 1 of 1"));
+  // The appendix header is repeated on each page the table continues onto.
+  const headerCount = (text.match(/RULE ID/g) ?? []).length;
+  assert.ok(headerCount >= 2, "appendix header should repeat on continuation pages");
+});
+
+test("a remediation longer than one page flows across paginated boxes", async () => {
+  const longRemediation = Array.from(
+    { length: 300 },
+    (_, i) => `Step ${i + 1}: perform remediation action ${i + 1} on the affected host.`,
+  ).join("\n");
+  const failed = { ...rule("failed", "UBTU-24-300027"), remediation: longRemediation };
+  const pdf = await generateComplianceReport(
+    baseData({ score: 0, passed: 0, failed: 1, errors: 0, total: 1, results: [failed] }),
+  );
+  const pages = pageCount(pdf);
+  assert.ok(pages > 1, "long remediation must push the report past one page");
+  const text = pdfText(pdf);
+  assert.ok(text.includes("Step 1:"), "first portion present");
+  assert.ok(text.includes("Step 300:"), "final portion present — nothing clipped");
+  assert.ok(text.includes("(continued)"), "continuation marker drawn");
+});
+
+test("a very long command is not clipped and keeps its evidence label", async () => {
+  const longCommand = `sudo awk -F: '!$2 {print $1}' /etc/shadow && ${"echo continuation-of-a-very-long-audit-command-pipeline ".repeat(40)}done`;
+  const failed = {
+    ...rule("failed", "UBTU-24-300027"),
+    auditCommands: [longCommand],
+    executions: [{ command: longCommand, stdout: "root\n", stderr: "", exitCode: 1 }],
+  };
+  const pdf = await generateComplianceReport(
+    baseData({ score: 0, passed: 0, failed: 1, errors: 0, total: 1, results: [failed] }),
+  );
+  const text = pdfText(pdf);
+  assert.ok(text.includes("COMMAND EXECUTED"));
+  assert.ok(text.includes("done"), "command tail survives — not clipped by the box");
+  assert.ok(text.includes("root"), "evidence rendered");
+});
+
+test("multiline evidence rows and mixed 82/13/5 legend percentages", async () => {
+  const failedWithMultiline = {
+    ...rule("failed", "UBTU-24-300027"),
+    executions: [
+      {
+        command: "sudo awk -F: '!$2 {print $1}' /etc/shadow",
+        stdout: "account-one\naccount-two\naccount-three\naccount-four",
+        stderr: "warning: legacy entries present",
+        exitCode: 1,
+      },
+    ],
+  };
+  const results = [
+    ...Array.from({ length: 82 }, (_, i) => rule("passed", `UBTU-24-8${String(i).padStart(4, "0")}`)),
+    failedWithMultiline,
+    ...Array.from({ length: 12 }, (_, i) => rule("failed", `UBTU-24-3${String(i).padStart(4, "0")}`)),
+    ...Array.from({ length: 5 }, (_, i) => rule("error", `UBTU-24-6${String(i).padStart(4, "0")}`)),
+  ];
+  const pdf = await generateComplianceReport(
+    baseData({ score: 82, passed: 82, failed: 13, errors: 5, total: 100, results }),
+  );
+  const text = pdfText(pdf);
+  // Legend shows explicit percentages next to raw counts.
+  assert.ok(text.includes("Passed — 82 (82%)"));
+  assert.ok(text.includes("Failed — 13 (13%)"));
+  assert.ok(text.includes("Errors — 5 (5%)"));
+  assert.ok(text.includes("account-three"), "multiline evidence fully rendered");
+});
+
+test("an all-error report does not masquerade as a clean pass", async () => {
+  const results = Array.from({ length: 3 }, (_, i) =>
+    rule("error", `UBTU-24-7${String(i).padStart(4, "0")}`),
+  );
+  const pdf = await generateComplianceReport(
+    baseData({ score: 0, passed: 0, failed: 0, errors: 3, total: 3, results }),
+  );
+  const text = pdfText(pdf);
+  assert.ok(text.includes("No confirmed compliance findings."));
+  assert.ok(!text.includes("All evaluated rules passed."));
+});
+
+test("rejects NaN and non-finite scores (range comparisons miss NaN)", async () => {
+  await assert.rejects(
+    generateComplianceReport(
+      baseData({ score: NaN, passed: 0, failed: 0, errors: 0, total: 0, results: [] }),
+    ),
+    ReportDataError,
+  );
+  await assert.rejects(
+    generateComplianceReport(
+      baseData({ score: Infinity, passed: 0, failed: 0, errors: 0, total: 0, results: [] }),
+    ),
+    ReportDataError,
+  );
+});
+
+test("very long asset and CIS names produce a valid report and safe filename", async () => {
+  const longAsset = `${"Extremely Long Production Server Name ".repeat(10)}1`;
+  const longCis = `${"Ubuntu 24.04 CIS Benchmark Level ".repeat(10)}1`;
+  const pdf = await generateComplianceReport(
+    baseData({
+      assetTitle: longAsset,
+      cisName: longCis,
+      score: 100,
+      passed: 1,
+      failed: 0,
+      errors: 0,
+      total: 1,
+      results: [rule("passed", "UBTU-24-600110")],
+    }),
+  );
+  assert.ok(pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-"));
+  const text = pdfText(pdf);
+  assert.ok(text.includes("Extremely Long Production Server Name"));
+  const name = buildReportFilename(longAsset, longCis, new Date("2026-08-29T12:00:00Z"));
+  assert.ok(name.length < 250, "filename stays header-safe");
+  assert.ok(!name.includes("/"));
+});
+
+

@@ -131,7 +131,17 @@ class Scanner {
    */
   private async runRaw(command: string, Password?: string): Promise<CommandResult> {
     const exec = this.ssh.execCommand(command, Password === undefined ? {} : { stdin: Password });
-    const timeoutMs = scanConfig.commandTimeoutMs;
+    // Defensive clamp: scanConfig.commandTimeoutMs is already a positive
+    // finite number (env-guarded at module load), but an undefined/zero value
+    // would make setTimeout fire on the next tick — an immediate, spurious
+    // timeout. Never allow that.
+    const timeoutMs = scanConfig.commandTimeoutMs > 0 ? scanConfig.commandTimeoutMs : 60_000;
+
+    // If the timer wins the race first, the abandoned exec promise can still
+    // reject later (channel teardown noise after we already moved on). Observe
+    // it with a no-op so a late rejection is never an unhandled rejection; the
+    // race below still propagates an EARLY rejection normally.
+    void exec.catch(() => undefined);
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
@@ -220,12 +230,24 @@ class Scanner {
    * SSH stdin channel (`-S`) — it is NEVER built into the command string
    * (no `echo 'password' | sudo ...`), never logged, and never appears in
    * results or errors.
+   *
+   * Password isolation: the inner shell starts with `exec </dev/null;`, so
+   * the audit command's stdin is /dev/null and the tool being audited can
+   * never read back the sudo password (defense in depth — node-ssh closes
+   * the channel stdin after the password line, but a rule that reads stdin
+   * must not be able to observe authentication input regardless).
    */
   async executeCommand(cmd: string): Promise<CommandResult> {
     const isRoot = this.username === "root";
+    // Redirect the inner shell's stdin away from the channel that carried
+    // the sudo password BEFORE the audit command runs. sudo still reads its
+    // password from the channel first; the audit shell then runs with
+    // stdin = /dev/null (exec applies the redirect to the shell itself, so
+    // chained commands and pipelines are all covered).
+    const guarded = `exec </dev/null; ${cmd}`;
     const wrapped = isRoot
-      ? `/bin/sh -c ${shellQuote(cmd)}`
-      : `sudo -S -p '' -- /bin/sh -c ${shellQuote(cmd)}`;
+      ? `/bin/sh -c ${shellQuote(guarded)}`
+      : `sudo -S -p '' -- /bin/sh -c ${shellQuote(guarded)}`;
     return this.runRaw(wrapped, isRoot ? undefined : `${this.password}\n`);
   }
 
@@ -285,15 +307,37 @@ class Scanner {
   private executionErrorMessage(res: CommandResult): string | null {
     if (res.code === 126) return "Command is not executable (exit 126).";
     if (res.code === 127) return "Command not found (exit 127).";
-    if (res.code !== 0 && res.stderr) {
-      const firstLine = res.stderr.split("\n")[0]?.trim() ?? "";
-      // Definite execution problems: sudo failures ("sudo: ..."), permission
-      // errors, authentication failures. Anything else nonzero (e.g. grep's
-      // exit 1 = no match) is left to the check evaluation. Long term, a
-      // per-rule "allowed_exit_codes" template field is the precise solution.
-      if (/^(sudo:|\[sudo\])/i.test(firstLine) || /permission denied|operation not permitted|authentication failure/i.test(firstLine)) {
-        return `Execution failed (exit ${res.code}): ${firstLine}`;
+
+    if (res.code !== 0 && (res.stderr || res.stdout)) {
+      // The first diagnostic line — stderr first, falling back to stdout for
+      // shells/tools that report execution errors on stdout.
+      const stderrHead = res.stderr.split("\n")[0]?.trim() ?? "";
+      const stdoutHead = res.stdout.split("\n")[0]?.trim() ?? "";
+      const head = stderrHead || stdoutHead;
+      const lowered = head.toLowerCase();
+
+      // Definite execution problems — NOT normal CLI exit conditions:
+      const isSudoFailure = /^(sudo:|\[sudo])/i.test(head);
+      const isShellFailure = /^\/bin\/sh:|^sh:|^bash:/.test(head);
+      const isNotFound =
+        /command not found|no such file or directory|cannot execute|is not recognized|not found in path/i.test(
+          lowered,
+        );
+      const isPrivilegeFailure =
+        /permission denied|operation not permitted|authentication failed|incorrect password|password incorrect/i.test(
+          lowered,
+        );
+
+      if (isSudoFailure || isShellFailure || isNotFound || isPrivilegeFailure) {
+        return `Execution failed (exit ${res.code}): ${head}`;
       }
+
+      // Anything else nonzero (grep/find exit 1 = "no match", comparison
+      // tools) is a NORMAL condition for the tool and must be left to the
+      // check evaluation. For precise per-rule control the future path is an
+      // `allowed_exit_codes` field on the rule template (a whitelist of codes
+      // considered compliant). Note "sudo: unable to resolve host" is a
+      // WARNING and deliberately matches none of the patterns above.
     }
     return null;
   }
