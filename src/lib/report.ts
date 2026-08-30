@@ -424,9 +424,13 @@ function drawLegend(doc: Doc, items: LegendItem[]): void {
 }
 
 /**
- * Ring segment from aStart to aEnd radians (clockwise, 0 = 12 o'clock).
- * Note: PDFKit's final arc() parameter is `anticlockwise` (the old local
- * type declared it as `clockwise` — misleading; runtime usage was correct).
+ * Draws one pie slice from startAngle to endAngle in radians (clockwise,
+ * 0 = 12 o'clock).
+ *
+ * PDFKit's arc() starts its own subpath. It must therefore not be used for a
+ * second, reverse inner arc in an annular path: doing so creates open
+ * subpaths, which PDF viewers close with diagonal chords. The doughnut hole
+ * is painted once after all slices instead.
  */
 function ringSegment(
   doc: Doc,
@@ -436,16 +440,8 @@ function ringSegment(
   endAngle: number,
 ): void {
   doc
-    .moveTo(
-      cx + R_OUTER * Math.cos(startAngle),
-      cy + R_OUTER * Math.sin(startAngle),
-    )
     .arc(cx, cy, R_OUTER, startAngle, endAngle, false)
-    .lineTo(
-      cx + R_INNER * Math.cos(endAngle),
-      cy + R_INNER * Math.sin(endAngle),
-    )
-    .arc(cx, cy, R_INNER, endAngle, startAngle, true)
+    .lineTo(cx, cy)
     .closePath();
 }
 
@@ -465,12 +461,10 @@ function drawDoughnut(doc: Doc, d: ReportData): void {
       .lineWidth(ringWidth)
       .strokeColor(BOX_BORDER)
       .stroke();
-  } else if (d.passed === d.total) {
-    doc.circle(CHART_CX, cy, ringRadius).lineWidth(ringWidth).fillColor(GREEN).fill();
-  } else if (d.failed === d.total) {
-    doc.circle(CHART_CX, cy, ringRadius).lineWidth(ringWidth).fillColor(RED).fill();
-  } else if (d.errors === d.total) {
-    doc.circle(CHART_CX, cy, ringRadius).lineWidth(ringWidth).fillColor(AMBER).fill();
+  } else if (d.passed === d.total || d.failed === d.total || d.errors === d.total) {
+    const color = d.passed === d.total ? GREEN : d.failed === d.total ? RED : AMBER;
+    doc.circle(CHART_CX, cy, R_OUTER).fillAndStroke(color, "#ffffff");
+    doc.circle(CHART_CX, cy, R_INNER).fillColor("#ffffff").fill();
   } else {
     const start = -Math.PI / 2;
     let angle = start;
@@ -487,6 +481,10 @@ function drawDoughnut(doc: Doc, d: ReportData): void {
       doc.lineWidth(0.5).fillAndStroke(color, "#ffffff");
       angle = end;
     }
+
+    // Paint one clean hole after all slices. This avoids PDFKit's separate
+    // arc subpaths producing diagonal chord artifacts in the ring.
+    doc.circle(CHART_CX, cy, R_INNER).fillColor("#ffffff").fill();
   }
 
   // Score centered in the hole.

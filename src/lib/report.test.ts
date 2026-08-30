@@ -291,6 +291,41 @@ test("multiline evidence rows and mixed 82/13/5 legend percentages", async () =>
   assert.ok(text.includes("account-three"), "multiline evidence fully rendered");
 });
 
+test("generates a correct mixed-result doughnut report (54/34/12)", async () => {
+  // The screenshot fixture from the bug report: one segment per color, no
+  // single category dominating (no full-circle shortcut taken).
+  const results = [
+    ...Array.from({ length: 54 }, (_, i) =>
+      rule("passed", `UBTU-24-100${String(i).padStart(3, "0")}`),
+    ),
+    ...Array.from({ length: 34 }, (_, i) =>
+      rule("failed", `UBTU-24-200${String(i).padStart(3, "0")}`),
+    ),
+    ...Array.from({ length: 12 }, (_, i) =>
+      rule("error", `UBTU-24-300${String(i).padStart(3, "0")}`),
+    ),
+  ];
+
+  const pdf = await generateComplianceReport(
+    baseData({
+      score: 54,
+      passed: 54,
+      failed: 34,
+      errors: 12,
+      total: 100,
+      results,
+    }),
+  );
+
+  assert.ok(pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-"));
+
+  const text = pdfText(pdf);
+  assert.ok(text.includes("54%"), "score rendered in the doughnut hole");
+  assert.ok(text.includes("Passed — 54 (54%)"));
+  assert.ok(text.includes("Failed — 34 (34%)"));
+  assert.ok(text.includes("Errors — 12 (12%)"));
+});
+
 test("an all-error report does not masquerade as a clean pass", async () => {
   const results = Array.from({ length: 3 }, (_, i) =>
     rule("error", `UBTU-24-7${String(i).padStart(4, "0")}`),
